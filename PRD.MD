@@ -1,436 +1,411 @@
 # PRD — AI-Powered Intelligent University ERP + Multilingual Helpdesk
 
+**Version:** 1.0.0  
+**Product Type:** University ERP + AI Retrieval Platform  
+**Last Updated:** March 2026
+
 ---
 
-# 1. Product Overview
+## 1. Product Overview
 
-**Product Name:** AI-Powered Intelligent University ERP  
-**Version:** 1.0.0  
-**Product Type:** University ERP + AI Retrieval Platform
-
-AI-Powered Intelligent University ERP is a modular university management platform that combines traditional ERP workflows with Retrieval-Augmented Generation (RAG)-based AI assistance. The system is designed to support university members by providing structured academic data access, placement intelligence, personalized dashboards, and multilingual AI-driven helpdesk support.
+AI-Powered Intelligent University ERP is a modular university management platform that combines traditional ERP workflows with Retrieval-Augmented Generation (RAG)-based AI assistance. The system supports university members by providing structured academic data access, personalized dashboards, and multilingual AI-driven helpdesk support.
 
 The platform separates structured database queries from semantic document retrieval:
 
 - Structured academic and administrative data are served from relational databases.
 - Unstructured institutional knowledge is retrieved using vector search and LLM-based contextual answering.
 
-The goal is to reduce departmental workload, improve information accessibility, and provide 24×7 multilingual support across university departments.
+The goal is to reduce administrative workload, improve information accessibility, and provide 24×7 multilingual support across university departments.
 
 ---
 
-# 2. Target Audience
+## 2. Target Audience
 
-The product is designed for university members.
-
-## Primary Users
+### Primary Users
 
 - Students
-- Faculty
-- Administrative Staff
-- Placement Cell Coordinators
+- Administrative Staff (Admin)
 - Department Administrators
 
-## Secondary Users
+### Secondary Users
 
 - Admission Cell
 - Examination Cell
 - Hostel Administration
 - Academic Office
 
-## User Context
+### User Context
 
-The system supports both authenticated and public users:
+The system supports both authenticated and public users.
 
-### Public Users
+**Public Users** can access:
+- Admission information
+- General university FAQs
+- Public notices
 
-Can access:
-
-- admission information
-- general university FAQs
-- public notices
-
-### Authenticated Users
-
-Can access:
-
-- personalized dashboard
-- academic records
-- placement preparation tools
-- internal AI helpdesk
+**Authenticated Users** can access:
+- Personalized dashboard
+- Academic records
+- Internal AI helpdesk
 
 ---
 
-# 3. Features
+## 3. Features
 
----
-
-## 3.1 User Management
+### 3.1 User Management
 
 - **User Registration:** Account creation by authorized university control system
 - **User Login:** Secure authentication using JWT
-- **Role-Based Access Control:** Student, Faculty, Admin roles
-- **Language Preference:** Multilingual interaction preference storage
+- **Role-Based Access Control:** System, Admin, Student roles
+- **Language Preference:** Multilingual interaction preference stored per user; passed as a parameter to AI service to determine response language
 - **Session Management:** Secure token-based sessions
+- **Logout:** Client-side JWT discard; token blacklisting via server-side store to be considered in future iterations
 
 ---
 
-## 3.2 Student Dashboard
+### 3.2 Student Dashboard
 
-- Personalized dashboard after login
+- Personalized dashboard post login
 - Semester overview
 - CGPA display
 - Academic notifications
 - Department notices
-- Placement eligibility summary
 
 ---
 
-## 3.3 Multilingual AI Helpdesk (RAG Based)
+### 3.3 Multilingual AI Helpdesk (RAG Based)
 
 - Natural language query answering
-- Supports multilingual university queries
+- Multilingual university query support
 - Department-based document retrieval
 - Semantic search across institutional documents
-- Context-aware answers using Gemini
+- Context-aware answers via Gemini API
 
-### Query Categories
+#### Query Categories
 
 - Admissions
 - Academics
 - Examination
 - Hostel
-- Placements
 - Campus Services
 
-### AI Query Routing
+#### AI Query Routing
 
-Structured queries:
+Routing between structured and unstructured paths is handled by a **rule-based classifier** in the Node.js backend, which inspects keywords and query intent before dispatching:
 
-- CGPA
-- Marks
+**Structured path** (Node.js → PostgreSQL):
+- CGPA queries
+- Marks and results
 - Semester data
 
-Unstructured queries:
-
+**Unstructured path** (Node.js → RAG Service → Qdrant → Gemini):
 - Circulars
-- Placement documents
-- Syllabus
-- Notices
+- Syllabus documents
+- Notices and policies
+
+#### Rate Limiting & Fallback
+
+- AI helpdesk queries are rate-limited per authenticated user (configurable threshold)
+- Public chatbot queries are rate-limited per IP address
+- If Gemini API is unavailable, a graceful fallback message is returned; no partial or hallucinated responses are served
 
 ---
 
-## 3.4 CGPA Maintainer + Trend Analyzer
+### 3.4 CGPA Maintainer + Trend Analyzer
 
 - Semester-wise SGPA tracking
 - CGPA history
 - Performance trend analysis
-- Trend labeling
-
-### Trend Labels
-
-- Improving
-- Stable
-- Declining
+- Trend labeling: **Improving**, **Stable**, **Declining**
 
 ---
 
-## 3.5 Target Company Placement System
+### 3.5 Document Management
 
-- Company eligibility listing
-- Target company selection
-- Preparation tracking
-- Placement document retrieval
+Admin users can upload and manage institutional documents which are ingested into the vector store for RAG retrieval.
 
-### Placement Support
-
-- JD upload
-- Eligibility circulars
-- Interview resources
-- Previous preparation materials
-
----
-
-## 3.6 Faculty Upload System
-
-Faculty can upload:
-
+**Supported document types:**
 - Academic notices
 - Exam circulars
 - Syllabus documents
 - Result files
-- Placement materials
+
+**Document lifecycle:**
+- On upload, documents are chunked and embedded into Qdrant
+- On deletion, associated vector embeddings are removed from Qdrant to prevent stale retrieval
+- Re-upload of the same document triggers a re-indexing flow (old vectors purged, new vectors inserted)
 
 ---
 
-## 3.7 Notification System
+### 3.6 Public Chatbot
 
-- Academic notifications
-- Placement alerts
-- Department announcements
-- Personalized updates
-
----
-
-## 3.8 Public Chatbot
-
-Public chatbot available on landing page for:
+Available on the landing page for unauthenticated users:
 
 - Admission FAQ
 - General university information
-- Basic placement information
+- IP-based rate limiting applied to prevent abuse
 
 ---
 
-## 3.9 Authenticated Chatbot
+### 3.7 Authenticated Chatbot
 
-Dashboard chatbot for:
+Dashboard chatbot for logged-in users:
 
 - Personalized academic queries
-- Placement-specific retrieval
-- Internal notices
+- Internal notices and circulars
+- User's language preference applied to AI responses
 
 ---
 
-# 4. Permission Table
+## 4. Permission Table
+
+### 4.1 User Roles
+
+| Role | Description |
+|------|-------------|
+| `system` | Superuser. Full privileges across all system operations. Reserved for infrastructure/operations. |
+| `admin` | University staff. Manages academic content, documents, users, and data. |
+| `student` | Enrolled student. Dashboard, academic records, and AI helpdesk access. |
+
+> **Note:** The Faculty role has been removed. All document upload and management responsibilities previously attributed to Faculty are now handled by Admin.
 
 ---
 
-## 4.1 User Roles
+### 4.2 Permission Matrix
 
-- `admin` - Full system access
-- `faculty` - Departmental document and academic content management
-- `student` - Dashboard and AI query access
-
----
-
-## 4.2 Permission Matrix
-
-| Feature                          | Admin | Student |
-| -------------------------------- | ----- | ------- |
-| Create User                      | ✓     | ✗       |
-| Manage Departments               | ✓     | ✗       |
-| Upload Academic Documents        | ✓     | ✗       |
-| Upload Placement Documents       | ✓     | ✗       |
-| Upload Results                   | ✓     | ✗       |
-| View Results                     | ✓     | ✓       |
-| View Dashboard                   | ✓     | ✓       |
-| Ask AI Helpdesk Queries          | ✓     | ✓       |
-| Access Personalized Chatbot      | ✓     | ✓       |
-| Manage Notifications             | ✓     | ✗       |
-| Target Company Selection         | ✗     | ✓       |
-| View Placement Eligibility       | ✓     | ✓       |
-| Manage Placement Companies       | ✓     | ✗       |
-| Manage Documents                 | ✓     | ✗       |
-| View Public Chatbot              | ✓     | ✓       |
+| Feature | System | Admin | Student |
+|---------|--------|-------|---------|
+| Create User | ✓ | ✓ | ✗ |
+| Manage Departments | ✓ | ✓ | ✗ |
+| Upload Academic Documents | ✓ | ✓ | ✗ |
+| Upload Results | ✓ | ✓ | ✗ |
+| View Results | ✓ | ✓ | ✓ |
+| View Dashboard | ✓ | ✓ | ✓ |
+| Ask AI Helpdesk Queries | ✓ | ✓ | ✓ |
+| Access Personalized Chatbot | ✓ | ✓ | ✓ |
+| Manage Documents | ✓ | ✓ | ✗ |
+| View Public Chatbot | ✓ | ✓ | ✓ |
+| Manage Users | ✓ | ✗ | ✗ |
+| System Configuration | ✓ | ✗ | ✗ |
 
 ---
 
-# 5. Routes
+## 5. Routes
+
+### 5.1 Authentication Routes
+
+Base: `/api/v1/auth/`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/register` | Register new user |
+| POST | `/login` | User login |
+| POST | `/logout` | Logout authenticated user |
+| GET | `/current-user` | Get current authenticated user |
+| POST | `/change-password` | Change password |
 
 ---
 
-## 5.1 Authentication Routes
+### 5.2 User Routes
 
-**Authentication Routes** (`/api/v1/auth/`)
+Base: `/api/v1/users/`
 
-- `POST /register` - Register new user
-- `POST /login` - User login
-- `POST /logout` - Logout secured user
-- `GET /current-user` - Get current authenticated user
-- `POST /change-password` - Change password
-
----
-
-## 5.2 User Routes
-
-**User Routes** (`/api/v1/users/`)
-
-- `GET /profile` - User profile
-- `PATCH /profile` - Update profile
-- `GET /notifications` - User notifications
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/profile` | Get user profile |
+| PATCH | `/profile` | Update user profile |
+| GET | `/notifications` | Get user notifications |
 
 ---
 
-## 5.3 Student Routes
+### 5.3 Student Routes
 
-**Student Routes** (`/api/v1/students/`)
+Base: `/api/v1/students/`
 
-- `GET /dashboard` - Student dashboard
-- `GET /cgpa` - Current CGPA
-- `GET /cgpa/history` - CGPA trend history
-- `GET /results` - Semester results
-- `GET /target-companies` - Selected companies
-- `POST /target-companies` - Add target company
-
----
-
-## 5.4 Faculty Routes
-
-**Faculty Routes** (`/api/v1/faculty/`)
-
-- `POST /upload-document` - Upload departmental document
-- `POST /upload-result` - Upload result data
-- `POST /upload-placement-doc` - Upload placement file
-- `GET /department-documents` - Department document list
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/dashboard` | Student dashboard data |
+| GET | `/cgpa` | Current CGPA |
+| GET | `/cgpa/history` | CGPA trend history |
+| GET | `/results` | Semester results |
 
 ---
 
-## 5.5 Company Routes
+### 5.4 Admin Routes
 
-**Placement Routes** (`/api/v1/companies/`)
+Base: `/api/v1/admin/`
 
-- `GET /` - List companies
-- `GET /:id` - Company details
-- `POST /` - Add company
-- `PATCH /:id` - Update company
-- `DELETE /:id` - Delete company
-
----
-
-## 5.6 AI Helpdesk Routes
-
-**AI Routes** (`/api/v1/ai/`)
-
-- `POST /query` - Ask AI helpdesk query
-- `POST /public-query` - Public chatbot query
-- `GET /query-history` - User query history
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/upload-document` | Upload departmental document |
+| POST | `/upload-result` | Upload result data |
+| GET | `/department-documents` | List department documents |
+| GET | `/users` | List all users |
+| POST | `/users` | Create new user |
+| PATCH | `/users/:id` | Update user |
+| DELETE | `/users/:id` | Remove user |
 
 ---
 
-## 5.7 Document Routes
+### 5.5 AI Helpdesk Routes
 
-**Document Routes** (`/api/v1/documents/`)
+Base: `/api/v1/ai/`
 
-- `POST /upload` - Upload document
-- `GET /` - List documents
-- `GET /:id` - Document details
-- `DELETE /:id` - Remove document
-
----
-
-## 5.8 Notification Routes
-
-**Notification Routes** (`/api/v1/notifications/`)
-
-- `GET /` - Fetch notifications
-- `PATCH /:id/read` - Mark notification read
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/query` | Ask authenticated AI helpdesk query |
+| POST | `/public-query` | Public chatbot query (rate limited by IP) |
+| GET | `/query-history` | Retrieve user's query history |
 
 ---
 
-# 6. Core Architecture
+### 5.6 Document Routes
+
+Base: `/api/v1/documents/`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/upload` | Upload and index document |
+| GET | `/` | List all documents |
+| GET | `/:id` | Get document details |
+| DELETE | `/:id` | Remove document and purge vectors |
 
 ---
 
-## Structured Query Path
+## 6. Core Architecture
 
-Used for:
+### Structured Query Path
 
-- CGPA
-- Marks
-- Results
-- User data
+Used for CGPA, marks, results, and user data.
 
-Flow:
+```
+Frontend (Next.js) → Node.js API → PostgreSQL → Response
+```
 
-Frontend → Node.js → PostgreSQL → Response
+### Semantic Query Path (RAG)
 
----
+Used for notices, circulars, syllabus, and policies.
 
-## Semantic Query Path (RAG)
+```
+Frontend (Next.js) → Node.js API → RAG Module → Qdrant → Gemini API → Response
+```
 
-Used for:
-
-- Placement docs
-- Notices
-- Circulars
-- Policies
-
-Flow:
-
-Frontend → Node.js → Python FastAPI → Vector DB → Gemini → Response
+> **Note:** The RAG module is currently embedded within the Node.js backend. Migration to a standalone Python/FastAPI microservice is planned post-MVP (see Section 8).
 
 ---
 
-# 7. Technology Stack
+## 7. Technology Stack
 
----
-
-## Frontend
-
+### Frontend
 - Next.js
 - Tailwind CSS
 
----
-
-## Backend
-
+### Backend
 - Node.js
 - Express.js
 
----
-
-## Relational Database
-
+### Relational Database
 - PostgreSQL
 
----
-
-## AI Service
-
-- Python
-- FastAPI
-- Pydantic
-
----
-
-## RAG Layer
-
-- LangChain
-- Sentence Transformers
+### RAG Layer (embedded in Node.js for MVP)
+- LangChain.js
+- Sentence Transformers (via API)
 - Gemini API
 
----
-
-## Vector Database
-
+### Vector Database
 - Qdrant
 
----
+### Document Processing
+- pdf-parse
+- text-splitter
 
-## Document Processing
-
-- PDF-PARSE
-
----
-
-## Security
-
+### Security
 - JWT Authentication
+- IP-based rate limiting (public routes)
+
+### Deployment
+- Vercel (Frontend)
+- Render (Backend)
 
 ---
 
-## Deployment
+## 8. Future Scope
 
-- Vercel
-- Render
+### 8.1 AI Service Migration to Python
+
+As AI workloads grow, the RAG module will be extracted from Node.js and migrated to a dedicated Python microservice.
+
+**Planned stack:**
+- Python + FastAPI
+- Pydantic for schema validation
+- LangChain (Python)
+- Sentence Transformers
+
+**Migration flow (post-MVP):**
+
+```
+Node.js → HTTP → Python FastAPI → Qdrant → Gemini → Response
+```
 
 ---
 
-# 8. Conclusion
+### 8.2 Placement Intelligence System
+
+Full placement module to be built as a standalone feature set after core ERP is stable.
+
+**Planned features:**
+- Company eligibility listing based on CGPA thresholds
+- Target company selection by students
+- Placement document retrieval (JDs, interview resources, past materials)
+- Preparation progress tracking
+- Placement eligibility summary on dashboard
+
+**Planned routes** (`/api/v1/companies/`, `/api/v1/students/placement/`):
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/companies` | List placement companies |
+| GET | `/companies/:id` | Company details |
+| POST | `/companies` | Add company (Admin) |
+| PATCH | `/companies/:id` | Update company (Admin) |
+| DELETE | `/companies/:id` | Remove company (Admin) |
+| GET | `/students/target-companies` | Student's selected companies |
+| POST | `/students/target-companies` | Add target company |
+
+**Planned permission additions:**
+
+| Feature | Admin | Student |
+|---------|-------|---------|
+| Manage Placement Companies | ✓ | ✗ |
+| Upload Placement Documents | ✓ | ✗ |
+| Target Company Selection | ✗ | ✓ |
+| View Placement Eligibility | ✓ | ✓ |
+
+---
+
+### 8.3 Token Blacklisting for Logout
+
+Implement server-side token revocation using Redis to support secure logout across distributed sessions.
+
+---
+
+### 8.4 Admin Audit Logs
+
+Track document uploads, user creation, and system changes by Admin and System users for accountability.
+
+> **Deferred:** Audit logging is out of MVP scope. To be picked up after core ERP and Placement Intelligence are stable.
+
+---
+
+## 9. Conclusion
 
 AI-Powered Intelligent University ERP is designed as a modular university system where traditional ERP operations and AI retrieval coexist in a unified product.
 
-The platform enables:
+The platform delivers:
 
-- structured academic data access
-- intelligent semantic document retrieval
-- multilingual support
-- placement intelligence
-- scalable departmental knowledge contribution
+- Structured academic data access via relational database queries
+- Intelligent semantic document retrieval via an embedded RAG pipeline
+- Multilingual support through user language preferences passed to Gemini
+- A clean, extensible architecture with a clear migration path to microservices
 
-The architecture is designed MVP-first, with clean extensibility toward future university-scale deployment.
-
-The combination of relational systems and RAG makes the product both operationally useful and technically modern.
-
----
+The MVP is Node.js + Next.js first, with Python AI service migration and the Placement Intelligence module planned as the next major development phases.
