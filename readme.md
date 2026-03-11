@@ -7,8 +7,8 @@ A modular university ERP system with multilingual AI helpdesk, student dashboard
 ## Clone Repository
 
 ```bash
-git clone <your-repository-url>
-cd <project-folder>
+git clone https://github.com/NJayantRao/Helpdesk-AI.git
+cd Helpdesk-AI
 ```
 
 ---
