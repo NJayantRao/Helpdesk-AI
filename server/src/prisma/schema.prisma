@@ -11,18 +11,109 @@ datasource db {
   provider = "postgresql"
 }
 
-model Post { 
-  id        Int      @id @default(autoincrement()) 
-  title     String
-  content   String?
-  published Boolean  @default(false) 
-  authorId  Int
-  author    User     @relation(fields: [authorId], references: [id]) 
-} 
+enum Role {
+  USER
+  ADMIN
+  SYSTEM
+}
 
-model User { 
-  id    Int    @id @default(autoincrement()) 
+model User {
+  id String @id @default(uuid())
+  fullName String
   email String @unique
-  name  String?
-  posts Post[]
-} 
+  password String
+  avatarUrl String
+  role Role @default(USER)
+  department Department @relation(fields: [departmentId], references: [id])
+  departmentId String
+  students Student?
+  admins Admin?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Department {
+  id String @id @default(uuid())
+  departmentName String
+  users User[]
+  subjects Subject[]
+  documents Document[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Student {
+  id String @id @default(uuid())
+  user User @relation(fields: [userId], references: [id])
+  userId String @unique
+  rollNumber String @unique
+  branch String
+  semester Int
+  admission_year Int
+  cgpa Float
+  result Result[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Admin {
+  id String @id @default(uuid())
+  user User @relation(fields: [userId], references: [id])
+  userId String  @unique
+  branch String
+  designation String
+  uploadedBy Document[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subject {
+  id String @id @default(uuid())
+  subjectName String
+  subjectCode String
+  credits Int
+  department Department @relation(fields: [departmentId],references: [id])
+  departmentId String 
+  results Result[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Result {
+  resultId String @id @default(uuid())
+  students Student @relation(fields: [studentId],references: [id])
+  studentId String
+  subjects Subject @relation(fields: [subjectId],references: [id])
+  subjectId String
+  semester Int
+  marks Float
+  grade String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, subjectId, semester])
+}
+
+model Company {
+  id String @id @default(uuid())
+  companyName String
+  avgPackage Float
+  eligibilityCgpa Float
+  jobRole String
+  visitDate DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id String @id @default(uuid())
+  departments Department @relation(fields: [departmentId],references: [id])
+  departmentId String
+  uploadedBy Admin @relation(fields: [uploadedById],references: [id])
+  uploadedById String
+  title String
+  fileUrl String
+  category String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
