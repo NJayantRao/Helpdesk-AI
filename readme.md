@@ -49,16 +49,11 @@ All development work should be done through dedicated branches following the nam
    ```
 
    Alternative way:-
-
-   ```bash
-   git checkout -b feature/my-cool-feature
-   ```
+   `git checkout -b feature/my-cool-feature`
 
 3. **Work:** Write code and commit.
 4. **Push:** Push your branch to GitHub.
-   ```bash
-   git push origin feature/my-cool-feature
-   ```
+   `git push origin feature/my-cool-feature`
 5. **Merge:** Open a Pull Request (PR) to merge your branch into `main`.
 
 ### 3.2 Commit Message Conventions
