@@ -4,5 +4,5 @@ import { ENV } from "./lib/env.js";
 const port = ENV.PORT || 5000;
 
 app.listen(port, () => {
-  console.log(`Server running successfully on port ${port}`);
+  console.log(`🚀🚀 Server running successfully on port ${port}... `);
 });
