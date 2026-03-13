@@ -1,18 +1,21 @@
 import type { ReactNode } from "react";
 
 import { DashboardShell } from "@/components/dashboard-shell";
+import { requireAdminSession } from "@/lib/auth";
 import { adminNavigation } from "@/lib/admin-data";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
+  const session = await requireAdminSession();
+
   return (
     <DashboardShell
-      role="Admin"
+      role={session.role}
       title="Admin operations"
-      subtitle="Manage document ingestion, user access, result publishing, and AI quality controls from one operational frontend."
+      subtitle="Manage documents, user access, result publishing, and daily operations from one workspace."
       items={adminNavigation}
     >
       {children}

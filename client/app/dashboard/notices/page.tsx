@@ -68,7 +68,7 @@ export default function NoticesPage() {
                       {notice.title}
                     </p>
                     <p className="mt-2 text-sm text-slate-500">
-                      {notice.department} • {notice.timeline}
+                      {notice.department} / {notice.timeline}
                     </p>
                   </div>
                   <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white">
@@ -94,8 +94,8 @@ export default function NoticesPage() {
                 <div>
                   <p className="text-lg font-semibold">Notice delivery model</p>
                   <p className="text-sm text-white/65">
-                    Dashboard first, digest second, never hidden behind generic
-                    feed clutter.
+                    Important updates stay visible so students do not miss key
+                    deadlines.
                   </p>
                 </div>
               </div>
@@ -103,20 +103,20 @@ export default function NoticesPage() {
             <div className="rounded-[28px] border border-slate-200/80 bg-slate-50/88 p-5">
               <div className="flex items-center gap-3 text-slate-900">
                 <ShieldAlert className="h-5 w-5" />
-                <span className="font-semibold">Why this page matters</span>
+                <span className="font-semibold">Notice tips</span>
               </div>
               <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
                 <p>
-                  The ERP needs a real notice model because many helpdesk
-                  answers should point back to official circulars.
+                  Review high-priority notices first, especially those related
+                  to examinations, hostel timelines, or administrative actions.
                 </p>
                 <p>
-                  Students should always know whether an update is broad
-                  information or specifically relevant to their workflow.
+                  Pay attention to audience labels so you can tell whether an
+                  update is broad or specific to your workflow.
                 </p>
                 <p>
-                  The backend can later scope these records by role, semester,
-                  department, hostel, or placement status.
+                  Use the support bubble if you need a quick explanation of a
+                  notice or deadline.
                 </p>
               </div>
             </div>

@@ -109,7 +109,7 @@ export function DocumentExplorer({
                     {document.title}
                   </p>
                   <p className="text-sm text-slate-500">
-                    {document.department} • {document.type}
+                    {document.department} / {document.type}
                   </p>
                 </div>
               </div>
@@ -142,8 +142,8 @@ export function DocumentExplorer({
 
       {filteredDocuments.length === 0 ? (
         <div className="mt-6 rounded-[24px] border border-dashed border-slate-300/80 bg-slate-50/80 p-6 text-sm leading-7 text-slate-600">
-          No documents match the current filters. Once your backend is
-          connected, this can map directly to server-side search and pagination.
+          No documents match the current filters. Try adjusting your search or
+          visibility selection.
         </div>
       ) : null}
     </section>

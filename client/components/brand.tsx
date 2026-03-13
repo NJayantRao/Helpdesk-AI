@@ -29,7 +29,7 @@ export function Brand({ href, compact = false, className }: BrandProps) {
             compact ? "text-base" : "text-lg"
           )}
         >
-          Helpdesk AI
+          Campus Portal
         </span>
       </span>
     </>

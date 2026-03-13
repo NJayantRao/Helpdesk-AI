@@ -48,8 +48,8 @@ export const studentNavigation: NavItem[] = [
   },
   {
     href: "/dashboard/helpdesk",
-    label: "AI Helpdesk",
-    description: "Structured and semantic guidance in one workspace.",
+    label: "Support",
+    description: "Ask questions or get quick guidance when needed.",
     icon: "bot",
   },
   {
@@ -78,10 +78,10 @@ export const studentOverviewMetrics: MetricCard[] = [
       "Exam cell, hostel, and department reminders need review this week.",
   },
   {
-    label: "Helpdesk resolution",
+    label: "Support response",
     value: "91%",
     detail:
-      "Most student support queries resolve without escalation when documents are current.",
+      "Most common support questions are resolved quickly from one place.",
   },
 ];
 

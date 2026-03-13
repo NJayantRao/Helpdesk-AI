@@ -28,7 +28,7 @@ export default function AdminPage() {
             <div>
               <span className="eyebrow">Operations queue</span>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                Admin tasks that unblock answer quality
+                Admin tasks that need attention
               </h2>
             </div>
           </div>
@@ -47,7 +47,7 @@ export default function AdminPage() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  {item.owner} • {item.eta}
+                  {item.owner} / {item.eta}
                 </p>
               </div>
             ))}
@@ -60,9 +60,9 @@ export default function AdminPage() {
               <div className="flex items-center gap-3">
                 <ShieldCheck className="h-5 w-5" />
                 <div>
-                  <p className="text-lg font-semibold">Permission model</p>
+                  <p className="text-lg font-semibold">Access lanes</p>
                   <p className="text-sm text-white/65">
-                    Admin and system lanes are separate from student-facing
+                    Staff and system access stay separate from student-facing
                     navigation.
                   </p>
                 </div>
@@ -71,19 +71,19 @@ export default function AdminPage() {
             <div className="rounded-[28px] border border-slate-200/80 bg-slate-50/88 p-5">
               <div className="flex items-center gap-3 text-slate-900">
                 <Users className="h-5 w-5" />
-                <span className="font-semibold">Frontend intent</span>
+                <span className="font-semibold">Workspace overview</span>
               </div>
               <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
                 <p>
-                  The admin console is now a real workspace, not a one-page side
-                  route inside the student dashboard.
+                  Keep documents, users, results, settings, and daily work in
+                  separate sections so the admin area stays easy to use.
                 </p>
                 <p>
-                  Documents, results, users, settings, and query operations each
-                  have their own navigation and room for backend wiring.
+                  Use the navigation to move directly to the team or process you
+                  need to manage.
                 </p>
                 <p>
-                  This keeps your frontend stable when real admin APIs arrive.
+                  The support bubble is also available here for quick guidance.
                 </p>
               </div>
             </div>

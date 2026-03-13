@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { JetBrains_Mono, Manrope } from "next/font/google";
 
+import { SupportChatWidget } from "@/components/support-chat-widget";
+import { getDemoSession } from "@/lib/auth";
+import { getSupportMode } from "@/lib/support-chat-data";
+
 import "./globals.css";
 
 const manrope = Manrope({
@@ -16,24 +20,28 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Helpdesk AI | Intelligent University ERP",
-    template: "%s | Helpdesk AI",
+    default: "Campus Portal | University ERP",
+    template: "%s | Campus Portal",
   },
   description:
-    "Frontend workspace for a university ERP with multilingual helpdesk, student analytics, result management, and admin operations.",
+    "University portal for admissions, notices, results, documents, and campus services.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
+  const session = await getDemoSession();
+  const supportMode = getSupportMode(session?.role);
+
   return (
     <html lang="en">
       <body
         className={`${manrope.variable} ${jetbrainsMono.variable} bg-background font-sans text-foreground antialiased`}
       >
         {children}
+        <SupportChatWidget key={supportMode} mode={supportMode} />
       </body>
     </html>
   );

@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { href: "#overview", label: "Overview" },
   { href: "#admissions", label: "Admissions" },
-  { href: "#routing", label: "AI Routing" },
-  { href: "#workspaces", label: "Workspaces" },
-  { href: "#roadmap", label: "Roadmap" },
+  { href: "#notices", label: "Notices" },
 ];
 
 export function SiteHeader() {
@@ -28,24 +26,8 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          <Button
-            href="/dashboard"
-            variant="secondary"
-            size="sm"
-            className="hidden md:inline-flex"
-          >
-            Student workspace
-          </Button>
-          <Button
-            href="/admin"
-            variant="soft"
-            size="sm"
-            className="hidden md:inline-flex"
-          >
-            Admin ops
-          </Button>
           <Button href="/login" size="md">
-            Launch login
+            Sign In
           </Button>
         </div>
       </div>
