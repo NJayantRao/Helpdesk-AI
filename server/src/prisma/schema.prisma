@@ -12,9 +12,15 @@ datasource db {
 }
 
 enum Role {
-  USER
+  STUDENT
   ADMIN
   SYSTEM
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHERS
 }
 
 model User {
@@ -22,19 +28,20 @@ model User {
   fullName String
   email String @unique
   password String
-  avatarUrl String
-  role Role @default(USER)
+  avatarUrl String?
+  role Role @default(STUDENT)
+  gender Gender
   department Department @relation(fields: [departmentId], references: [id])
   departmentId String
-  students Student?
-  admins Admin?
+  student Student?
+  admin Admin?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Department {
   id String @id @default(uuid())
-  departmentName String
+  name String
   users User[]
   subjects Subject[]
   documents Document[]
@@ -49,9 +56,12 @@ model Student {
   rollNumber String @unique
   branch String
   semester Int
-  admission_year Int
-  cgpa Float
+  admissionYear Int
+  isHostelite Boolean
+  cgpa Float @default(0)
   result Result[]
+  subjects Subject[]
+  attendance Attendance[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -70,20 +80,34 @@ model Admin {
 model Subject {
   id String @id @default(uuid())
   subjectName String
-  subjectCode String
+  subjectCode String @unique
   credits Int
   department Department @relation(fields: [departmentId],references: [id])
   departmentId String 
+  student Student[]
   results Result[]
+  attendance Attendance[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model Attendance {
+  id String @id @default(uuid())
+  student Student @relation(fields: [studentId], references: [id])
+  studentId String
+  subject Subject @relation(fields: [subjectId], references: [id])
+  subjectId String
+  percentage Float @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([studentId, subjectId])
+}
+
 model Result {
   resultId String @id @default(uuid())
-  students Student @relation(fields: [studentId],references: [id])
+  student Student @relation(fields: [studentId],references: [id])
   studentId String
-  subjects Subject @relation(fields: [subjectId],references: [id])
+  subject Subject @relation(fields: [subjectId],references: [id])
   subjectId String
   semester Int
   marks Float
@@ -107,7 +131,7 @@ model Company {
 
 model Document {
   id String @id @default(uuid())
-  departments Department @relation(fields: [departmentId],references: [id])
+  department Department @relation(fields: [departmentId],references: [id])
   departmentId String
   uploadedBy Admin @relation(fields: [uploadedById],references: [id])
   uploadedById String
