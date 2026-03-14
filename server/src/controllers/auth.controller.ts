@@ -14,14 +14,99 @@ import type { Request, Response, NextFunction } from "express";
 import { baseOptions, refreshTokenOptions } from "../utils/constants.js";
 import { AsyncHandler } from "../utils/async-handler.js";
 import jwt from "jsonwebtoken";
+import { uploadFileToCloudinary } from "../lib/cloudinary.js";
 
 /**
  * @route POST /auth/register
  * @desc Register user controller
  * @access public
  */
-export const registerUser = AsyncHandler(async (req: any, res: any) => {
-  return res.status(200).send("hello");
+export const registerStudent = AsyncHandler(async (req: any, res: any) => {
+  const { fullName, email, password, gender, branch, Hostel, departmentId } =
+    req.body;
+  let attachment = null;
+
+  //check user exists or not
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+
+  if (existingUser) {
+    return res.status(400).json(new ApiError(400, "User already exists"));
+  }
+
+  const hashedPassword = await hashPassword(password);
+
+  //attach profile image
+  if (req?.file) {
+    const cloudinaryResult: any = await uploadFileToCloudinary(
+      req?.file.buffer,
+      "Helpdesk_AI"
+    );
+    attachment = cloudinaryResult.secure_url;
+  }
+
+  const isHostelite = Hostel === "true" ? true : false;
+  //create new user
+  const user = await prisma.user.create({
+    data: {
+      fullName,
+      email,
+      password: hashedPassword,
+      avatarUrl: attachment,
+      gender,
+      departmentId,
+    },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      gender: true,
+      departmentId: true,
+      role: true,
+    },
+  });
+
+  //create student
+  const newStudent = await prisma.student.create({
+    data: {
+      userId: user.id,
+      rollNumber: "1",
+      branch,
+      semester: 3,
+      admissionYear: 2023,
+      isHostelite,
+    },
+  });
+
+  //crate payload
+  const payload = {
+    id: user.id,
+    email,
+    role: user.role,
+  };
+
+  //generate tokens
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+
+  //add to redis
+  await redisClient.set(`refresh-token:${user.id}`, refreshToken, {
+    EX: 7 * 24 * 60 * 60,
+  });
+
+  //add to cookies
+  res.cookie("accessToken", accessToken, baseOptions);
+  res.cookie("refreshToken", refreshToken, refreshTokenOptions);
+
+  //send email
+  // email will be sent
+
+  // return
+  return res.status(201).json(
+    new ApiResponse(201, "Student registered successfully", {
+      accessToken,
+      refreshToken,
+    })
+  );
 });
 
 /**
@@ -30,17 +115,51 @@ export const registerUser = AsyncHandler(async (req: any, res: any) => {
  * @access public
  */
 export const loginUser = AsyncHandler(async (req: any, res: any) => {
-  return res.status(200).send("hello");
+  const { email, password } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user) {
+    return res.status(404).json(new ApiError(404, "User not found"));
+  }
+  const isMatched = await comparePassword(password, user.password);
+  if (!isMatched) {
+    return res.status(401).json(new ApiError(401, "Invalid credentials"));
+  }
+
+  //access & refresh token
+  const payload = {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+  };
+
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+
+  res.cookie("accessToken", accessToken, baseOptions);
+  res.cookie("refreshToken", refreshToken, refreshTokenOptions);
+
+  await redisClient.set(`refresh-token:${user.id}`, refreshToken, {
+    EX: 7 * 24 * 60 * 60,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "User logged in successfully...", {
+      accessToken,
+      refreshToken,
+    })
+  );
 });
 
-/**
- * @route GET /auth/verify-email
- * @desc Verify email controller
- * @access public
- */
-export const verifyEmail = AsyncHandler(async (req: any, res: any) => {
-  return res.status(200).send("hello");
-});
+// /**
+//  * @route GET /auth/verify-email
+//  * @desc Verify email controller
+//  * @access public
+//  */
+// export const verifyEmail = AsyncHandler(async (req: any, res: any) => {
+//   return res.status(200).send("hello");
+// });
 
 /**
  * @route POST /auth/logout
@@ -48,7 +167,20 @@ export const verifyEmail = AsyncHandler(async (req: any, res: any) => {
  * @access private
  */
 export const logoutUser = AsyncHandler(async (req: any, res: any) => {
-  return res.status(200).send("hello");
+  const userId = req.user.id;
+  const refreshToken = req?.cookies?.refreshToken;
+
+  await redisClient.set(`blackList-token:${refreshToken}`, "BLOCKED", {
+    EX: 7 * 24 * 60 * 60,
+  });
+
+  res.clearCookie("accessToken", baseOptions);
+  res.clearCookie("refreshToken", refreshTokenOptions);
+  await redisClient.del(`refresh-token:${userId}`);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "User logged out successfully"));
 });
 
 /**
@@ -81,6 +213,12 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
       req?.cookies?.refreshToken || authorization?.split(" ")[1];
 
     if (!refreshToken) {
+      return res.status(401).json(new ApiError(401, "Unauthorized request"));
+    }
+    const blacklisted = await redisClient.get(
+      `blackList-token:${req?.cookies?.refreshToken}`
+    );
+    if (blacklisted === "BLOCKED") {
       return res.status(401).json(new ApiError(401, "Unauthorized request"));
     }
     interface IPayload {

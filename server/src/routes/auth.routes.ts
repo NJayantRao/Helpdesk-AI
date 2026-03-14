@@ -4,7 +4,7 @@ import {
   loginUser,
   logoutUser,
   refreshAccessToken,
-  registerUser,
+  registerStudent,
   resetPassword,
 } from "../controllers/auth.controller.js";
 import { authMiddleware } from "../middlewares/auth-middleware.js";
@@ -13,10 +13,16 @@ import {
   userLoginValidation,
   userRegistrationValidation,
 } from "../middlewares/validator.js";
+import { upload } from "../lib/multer.js";
 
 const router = express.Router();
 
-router.post("/register", userRegistrationValidation, registerUser);
+router.post(
+  "/register",
+  upload.single("profile-image"),
+  userRegistrationValidation,
+  registerStudent
+);
 router.post("/login", userLoginValidation, loginUser);
 router.get("/refresh-token", refreshAccessToken);
 

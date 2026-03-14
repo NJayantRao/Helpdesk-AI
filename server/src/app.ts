@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { ENV } from "./lib/env.js";
 import { rateLimiter } from "./middlewares/rate-limit-middleware.js";
 import { authRouter } from "./routes/auth.routes.js";
+import { departmentRouter } from "./routes/department.routes.js";
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use(rateLimiter);
+
 /**
  * @route GET /health-check
  * @description Health check endpoint to verify if the server is running and healthy.
@@ -42,5 +44,6 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/department", departmentRouter);
 
 export default app;

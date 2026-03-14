@@ -4,7 +4,7 @@ const baseOptions = {
   httpOnly: true,
   sameSite: "none" as const,
   secure: ENV.NODE_ENV === "PRODUCTION",
-  maxAge: 15 * 60 * 60 * 1000,
+  maxAge: 15 * 60 * 1000,
 };
 
 const refreshTokenOptions = {
