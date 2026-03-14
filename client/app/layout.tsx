@@ -1,48 +1,32 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
-import { JetBrains_Mono, Manrope } from "next/font/google";
-
-import { SupportChatWidget } from "@/components/support-chat-widget";
-import { getDemoSession } from "@/lib/auth";
-import { getSupportMode } from "@/lib/support-chat-data";
-
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: {
-    default: "Campus Portal | University ERP",
-    template: "%s | Campus Portal",
-  },
+  title: "UniERP — Intelligent University Platform",
   description:
-    "University portal for admissions, notices, results, documents, and campus services.",
+    "AI-Powered University ERP with multilingual helpdesk and student analytics",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
-}: Readonly<{
-  children: ReactNode;
-}>) {
-  const session = await getDemoSession();
-  const supportMode = getSupportMode(session?.role);
-
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${manrope.variable} ${jetbrainsMono.variable} bg-background font-sans text-foreground antialiased`}
-      >
-        {children}
-        <SupportChatWidget key={supportMode} mode={supportMode} />
-      </body>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>{children}</body>
     </html>
   );
 }

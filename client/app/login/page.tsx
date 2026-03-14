@@ -1,189 +1,209 @@
-import { ArrowRight, LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
-import { redirect } from "next/navigation";
+"use client";
+import React, { useState, Suspense } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  BookOpen,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  Building,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 
-import { loginAction } from "@/app/auth-actions";
-import { Brand } from "@/components/brand";
-import { Button } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
-import { getDemoSession } from "@/lib/auth";
+function LoginForm() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const [role, setRole] = useState<"student" | "admin">(
+    params.get("role") === "admin" ? "admin" : "student"
+  );
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-const roleEntries = [
-  {
-    title: "Student access",
-    detail:
-      "Results, notices, documents, profile settings, and the student workspace.",
-    icon: UserRound,
-  },
-  {
-    title: "Admin access",
-    detail: "Documents, users, results, and operational tools for staff teams.",
-    icon: ShieldCheck,
-  },
-];
+  const DEMO = {
+    student: { email: "arjun.sharma@nist.edu", password: "student123" },
+    admin: { email: "priya.nair@nist.edu", password: "admin123" },
+  };
 
-export default async function LoginPage() {
-  const session = await getDemoSession();
+  function fillDemo() {
+    setEmail(DEMO[role].email);
+    setPassword(DEMO[role].password);
+    setError("");
+  }
 
-  if (session) {
-    redirect("/");
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    if (email === DEMO[role].email && password === DEMO[role].password) {
+      router.push(role === "admin" ? "/admin" : "/dashboard");
+    } else {
+      setError("Invalid email or password. Use the demo credentials below.");
+    }
+    setLoading(false);
   }
 
   return (
-    <main className="section-shell flex min-h-screen items-center py-10">
-      <div className="grid w-full gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-        <section className="surface-card flex flex-col justify-between overflow-hidden p-8 sm:p-10 lg:p-12">
-          <div>
-            <Brand href="/" />
-            <div className="mt-10 max-w-2xl space-y-6">
-              <span className="eyebrow">Session entry</span>
-              <h1 className="text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-                Sign in to the university portal.
-              </h1>
-              <p className="text-base leading-8 text-slate-600 sm:text-lg">
-                Choose a role, enter your details, and continue to your
-                workspace.
-              </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 flex items-center justify-center px-5">
+      <div className="w-full max-w-md animate-slide-up">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <Link href="/" className="inline-flex items-center gap-2.5 mb-6">
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200">
+              <BookOpen size={18} className="text-white" />
             </div>
+            <span className="text-lg font-bold text-slate-900">UniERP</span>
+          </Link>
+          <h1
+            className="text-2xl font-bold text-slate-900 mb-1.5"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Welcome back
+          </h1>
+          <p className="text-sm text-slate-500">
+            Sign in to your university portal
+          </p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+          {/* Role Tabs */}
+          <div className="grid grid-cols-2 border-b border-slate-200">
+            {(["student", "admin"] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => {
+                  setRole(r);
+                  setError("");
+                  setEmail("");
+                  setPassword("");
+                }}
+                className={`flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-all ${role === r ? "text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50" : "text-slate-500 hover:bg-slate-50"}`}
+              >
+                {r === "student" ? (
+                  <GraduationCap size={15} />
+                ) : (
+                  <Building size={15} />
+                )}
+                {r.charAt(0).toUpperCase() + r.slice(1)}
+              </button>
+            ))}
           </div>
 
-          <div className="mt-10 grid gap-4">
-            {roleEntries.map((entry) => {
-              const Icon = entry.icon;
+          <form onSubmit={handleLogin} className="p-6 space-y-4">
+            {error && (
+              <div className="flex items-start gap-2.5 px-3.5 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+                <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                {error}
+              </div>
+            )}
 
-              return (
-                <article
-                  key={entry.title}
-                  className="rounded-[28px] border border-white/80 bg-white/84 px-5 py-5 shadow-[0_24px_54px_-40px_rgba(15,23,42,0.46)]"
-                >
-                  <span className="flex items-start gap-4">
-                    <span className="rounded-2xl bg-slate-950 p-3 text-white">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="block">
-                      <span className="block text-lg font-semibold text-slate-950">
-                        {entry.title}
-                      </span>
-                      <span className="mt-2 block text-sm leading-6 text-slate-600">
-                        {entry.detail}
-                      </span>
-                    </span>
-                  </span>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="surface-card p-8 sm:p-10">
-          <div className="flex items-center gap-3">
-            <span className="rounded-2xl bg-slate-950 p-3 text-white">
-              <LockKeyhole className="h-5 w-5" />
-            </span>
             <div>
-              <span className="eyebrow">Sign in</span>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                Choose how you want to continue
-              </h2>
-            </div>
-          </div>
-
-          <form action={loginAction}>
-            <div className="mt-8 grid gap-5">
-              <Field
-                label="University email"
-                hint="Use your campus email address."
-              >
-                <input
-                  name="email"
-                  defaultValue="ananya.sharma@campus.edu"
-                  aria-label="University email"
-                />
-              </Field>
-              <Field label="Password" hint="Enter your password to continue.">
-                <input
-                  type="password"
-                  defaultValue="secure-password"
-                  aria-label="Password"
-                />
-              </Field>
-              <Field
-                label="Preferred response language"
-                hint="Choose the language you prefer to use in the portal."
-              >
-                <select
-                  name="language"
-                  defaultValue="English"
-                  aria-label="Preferred response language"
-                >
-                  <option>English</option>
-                  <option>Hindi</option>
-                  <option>Bengali</option>
-                  <option>Tamil</option>
-                  <option>Telugu</option>
-                </select>
-              </Field>
-              <Field
-                label="Role preview"
-                hint="Choose the role you want to enter."
-              >
-                <select
-                  name="role"
-                  defaultValue="Student"
-                  aria-label="Role preview"
-                >
-                  <option>Student</option>
-                  <option>Admin</option>
-                  <option>System</option>
-                </select>
-              </Field>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                University Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={`e.g. ${DEMO[role].email}`}
+                className="w-full py-2.5 px-3.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-900 placeholder:text-slate-400 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                required
+              />
             </div>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              <Button
-                type="submit"
-                name="destination"
-                value="landing"
-                size="lg"
-                className="justify-between"
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-slate-700">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  className="text-xs text-indigo-600 hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPass ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="w-full py-2.5 pl-3.5 pr-10 border border-slate-200 rounded-xl text-sm bg-white text-slate-900 placeholder:text-slate-400 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 shadow-sm hover:shadow-indigo-200 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" /> Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
+            </button>
+
+            {/* Demo credentials */}
+            <div className="border border-dashed border-slate-200 rounded-xl p-3.5 bg-slate-50">
+              <p className="text-xs font-semibold text-slate-600 mb-2">
+                Demo Credentials ({role})
+              </p>
+              <p className="text-xs text-slate-500 font-mono">
+                {DEMO[role].email}
+              </p>
+              <p className="text-xs text-slate-500 font-mono">
+                {DEMO[role].password}
+              </p>
+              <button
+                type="button"
+                onClick={fillDemo}
+                className="mt-2 text-xs text-indigo-600 font-medium hover:underline"
               >
-                Sign in
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button
-                type="submit"
-                name="destination"
-                value="workspace"
-                variant="secondary"
-                size="lg"
-                className="justify-between"
-              >
-                Open workspace directly
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+                Auto-fill credentials →
+              </button>
             </div>
           </form>
+        </div>
 
-          <div className="mt-8 rounded-[28px] bg-slate-950 p-6 text-white shadow-[0_24px_40px_-24px_rgba(15,23,42,0.88)]">
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-white/55">
-              Quick note
-            </p>
-            <div className="mt-4 space-y-3 text-sm leading-7 text-white/78">
-              <p>
-                Student sign-in opens results, notices, documents, and profile
-                tools.
-              </p>
-              <p>
-                Admin sign-in opens user access, documents, results, and staff
-                operations.
-              </p>
-              <p>
-                If you need help anywhere in the app, use the support bubble in
-                the bottom corner.
-              </p>
-            </div>
-          </div>
-        </section>
+        <p className="text-center text-xs text-slate-400 mt-5">
+          Accounts are created by university admin only.{" "}
+          <Link href="/" className="text-indigo-600 hover:underline">
+            Back to home
+          </Link>
+        </p>
       </div>
-    </main>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="animate-spin text-indigo-600" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
