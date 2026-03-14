@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import ApiError from "../utils/api-error.js";
 import { ENV } from "../lib/env.js";
+import { IPayload } from "../utils/constants.js";
 
 const authMiddleware = async (req: any, res: any, next: any) => {
   try {
@@ -24,12 +25,6 @@ const authMiddleware = async (req: any, res: any, next: any) => {
     return res.status(401).json(new ApiError(401, "Invalid Token"));
   }
 };
-
-interface IPayload {
-  id: string;
-  email: string;
-  role: string;
-}
 
 const generateAccessToken = (userData: IPayload) => {
   const token = jwt.sign(userData, ENV.ACCESS_TOKEN_SECRET, {

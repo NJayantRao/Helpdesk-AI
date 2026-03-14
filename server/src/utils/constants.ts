@@ -13,5 +13,10 @@ const refreshTokenOptions = {
   secure: ENV.NODE_ENV === "PRODUCTION",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
+interface IPayload {
+  id: string;
+  email: string;
+  role: string;
+}
 
-export { baseOptions, refreshTokenOptions };
+export { baseOptions, refreshTokenOptions, IPayload };

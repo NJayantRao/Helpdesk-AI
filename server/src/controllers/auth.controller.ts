@@ -11,20 +11,29 @@ import ApiResponse from "../utils/api-response.js";
 import { comparePassword, hashPassword } from "../utils/bcrypt.js";
 import crypto from "crypto";
 import type { Request, Response, NextFunction } from "express";
-import { baseOptions, refreshTokenOptions } from "../utils/constants.js";
+import {
+  baseOptions,
+  IPayload,
+  refreshTokenOptions,
+} from "../utils/constants.js";
 import { AsyncHandler } from "../utils/async-handler.js";
 import jwt from "jsonwebtoken";
 import { uploadFileToCloudinary } from "../lib/cloudinary.js";
+import { checkAdmin, checkSystem } from "../utils/check-role.js";
 
 /**
- * @route POST /auth/register
+ * @route POST /auth/student/register
  * @desc Register user controller
- * @access public
+ * @access private
  */
 export const registerStudent = AsyncHandler(async (req: any, res: any) => {
   const { fullName, email, password, gender, branch, Hostel, departmentId } =
     req.body;
   let attachment = null;
+
+  if (!checkSystem(req.user)) {
+    return res.status(403).json(new ApiError(403, "Access Forbidden"));
+  }
 
   //check user exists or not
   const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -110,12 +119,154 @@ export const registerStudent = AsyncHandler(async (req: any, res: any) => {
 });
 
 /**
- * @route POST /auth/login
+ * @route POST /auth/student/register
+ * @desc Register user controller
+ * @access private
+ */
+export const registerAdmin = AsyncHandler(async (req: any, res: any) => {
+  const {
+    fullName,
+    email,
+    password,
+    gender,
+    branch,
+    designation,
+    departmentId,
+  } = req.body;
+  let attachment = null;
+
+  if (!checkSystem(req.user)) {
+    return res.status(403).json(new ApiError(403, "Access Forbidden"));
+  }
+
+  //check user exists or not
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+
+  if (existingUser) {
+    return res.status(400).json(new ApiError(400, "User already exists"));
+  }
+
+  const hashedPassword = await hashPassword(password);
+
+  //attach profile image
+  if (req?.file) {
+    const cloudinaryResult: any = await uploadFileToCloudinary(
+      req?.file.buffer,
+      "Helpdesk_AI"
+    );
+    attachment = cloudinaryResult.secure_url;
+  }
+
+  //create new user
+  const user = await prisma.user.create({
+    data: {
+      fullName,
+      email,
+      password: hashedPassword,
+      avatarUrl: attachment,
+      gender,
+      departmentId,
+    },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      gender: true,
+      departmentId: true,
+      role: true,
+    },
+  });
+
+  //create student
+  const newAdmin = await prisma.admin.create({
+    data: {
+      userId: user.id,
+      branch,
+      designation,
+    },
+  });
+
+  //crate payload
+  const payload = {
+    id: user.id,
+    email,
+    role: user.role,
+  };
+
+  //generate tokens
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+
+  //add to redis
+  await redisClient.set(`refresh-token:${user.id}`, refreshToken, {
+    EX: 7 * 24 * 60 * 60,
+  });
+
+  //add to cookies
+  res.cookie("accessToken", accessToken, baseOptions);
+  res.cookie("refreshToken", refreshToken, refreshTokenOptions);
+
+  //send email
+  // email will be sent
+
+  // return
+  return res.status(201).json(
+    new ApiResponse(201, "Admin registered successfully", {
+      accessToken,
+      refreshToken,
+    })
+  );
+});
+
+/**
+ * @route POST /auth/student/login
  * @desc Login user controller
  * @access public
  */
 export const loginUser = AsyncHandler(async (req: any, res: any) => {
   const { email, password } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user) {
+    return res.status(404).json(new ApiError(404, "User not found"));
+  }
+  const isMatched = await comparePassword(password, user.password);
+  if (!isMatched) {
+    return res.status(401).json(new ApiError(401, "Invalid credentials"));
+  }
+
+  //access & refresh token
+  const payload = {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+  };
+
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+
+  res.cookie("accessToken", accessToken, baseOptions);
+  res.cookie("refreshToken", refreshToken, refreshTokenOptions);
+
+  await redisClient.set(`refresh-token:${user.id}`, refreshToken, {
+    EX: 7 * 24 * 60 * 60,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, "User logged in successfully...", {
+      accessToken,
+      refreshToken,
+    })
+  );
+});
+
+export const loginAdmin = AsyncHandler(async (req: any, res: any) => {
+  const { email, password } = req.body;
+
+  if (!checkAdmin(req.user)) {
+    return res.status(403).json(new ApiError(403, "Access Forbidden"));
+  }
 
   const user = await prisma.user.findUnique({ where: { email } });
 
@@ -189,7 +340,20 @@ export const logoutUser = AsyncHandler(async (req: any, res: any) => {
  * @access public
  */
 export const forgotPassword = AsyncHandler(async (req: any, res: any) => {
-  return res.status(200).send("hello");
+  const { email } = req.body;
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user) {
+    return res.status(404).json(new ApiError(404, "User not found"));
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000);
+  await redisClient.set(`verify-otp:${user.email}`, otp, { EX: 10 * 60 });
+  // await sendResetPasswordMail(user.email, user.username, otp);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "OTP sent to email successfully"));
 });
 
 /**
@@ -198,7 +362,32 @@ export const forgotPassword = AsyncHandler(async (req: any, res: any) => {
  * @access public
  */
 export const resetPassword = AsyncHandler(async (req: any, res: any) => {
-  return res.status(200).send("hello");
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    return res.status(400).json(new ApiError(400, "All fields are required"));
+  }
+
+  const storedOtp = await redisClient.get(`verify-otp:${email}`);
+
+  if (!storedOtp || otp.toString() !== storedOtp) {
+    return res.status(400).json(new ApiError(400, "Invalid  OTP"));
+  }
+
+  const hashedPassword = await hashPassword(newPassword);
+
+  const user = await prisma.user.update({
+    where: {
+      email,
+    },
+    data: { password: hashedPassword },
+  });
+
+  await redisClient.del(`verify-otp:${email}`);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Password reset successfully"));
 });
 
 /**
@@ -221,11 +410,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
     if (blacklisted === "BLOCKED") {
       return res.status(401).json(new ApiError(401, "Unauthorized request"));
     }
-    interface IPayload {
-      id: string;
-      email: string;
-      role: string;
-    }
+
     const decoded = jwt.verify(
       refreshToken,
       ENV.REFRESH_TOKEN_SECRET
