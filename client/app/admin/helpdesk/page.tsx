@@ -101,7 +101,6 @@ export default function AdminHelpdeskPage() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const messageIdRef = useRef(0);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,18 +109,14 @@ export default function AdminHelpdeskPage() {
   function send(text?: string) {
     const msg = (text || input).trim();
     if (!msg || typing) return;
+    const delay = 1000 + Math.random() * 600;
     const now = new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
     setMessages((prev) => [
       ...prev,
-      {
-        id: (++messageIdRef.current).toString(),
-        role: "user",
-        content: msg,
-        time: now,
-      },
+      { id: Date.now().toString(), role: "user", content: msg, time: now },
     ]);
     setInput("");
     setTyping(true);
@@ -131,7 +126,7 @@ export default function AdminHelpdeskPage() {
       setMessages((prev) => [
         ...prev,
         {
-          id: (++messageIdRef.current).toString(),
+          id: (Date.now() + 1).toString(),
           role: "assistant",
           content,
           time: new Date().toLocaleTimeString([], {
@@ -141,7 +136,7 @@ export default function AdminHelpdeskPage() {
           sources,
         },
       ]);
-    }, 1500);
+    }, delay);
   }
 
   return (

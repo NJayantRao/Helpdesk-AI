@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, Badge } from "@/components/ui";
-import { mockAdminUser } from "@/lib/utils";
+import { mockAdminUser, DEPARTMENTS } from "@/lib/utils";
 import {
   Building2,
   Users,

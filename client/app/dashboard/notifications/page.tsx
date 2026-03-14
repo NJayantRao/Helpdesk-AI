@@ -3,8 +3,8 @@ import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, Badge } from "@/components/ui";
 import { mockUser, mockNotifications } from "@/lib/utils";
-import { BellOff, CheckCheck, Filter } from "lucide-react";
-import type { Notification } from "@/types/index";
+import { Bell, BellOff, CheckCheck, Filter } from "lucide-react";
+import type { Notification } from "@/types";
 
 const TYPE_COLORS = {
   urgent: "danger",
