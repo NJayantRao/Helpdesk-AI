@@ -19,4 +19,4 @@ client.on("error", (err: any) => {
 });
 await client.connect();
 
-export { client };
+export { client as redisClient };

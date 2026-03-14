@@ -1,39 +1,27 @@
 import express from "express";
+import {
+  forgotPassword,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  registerUser,
+  resetPassword,
+} from "../controllers/auth.controller.js";
+import { authMiddleware } from "../middlewares/auth-middleware.js";
+import {
+  resetPasswordValidation,
+  userLoginValidation,
+  userRegistrationValidation,
+} from "../middlewares/validator.js";
 
 const router = express.Router();
 
-/**
- * @route POST /auth/register
- * @desc Register user controller
- * @access public
- */
+router.post("/register", userRegistrationValidation, registerUser);
+router.post("/login", userLoginValidation, loginUser);
+router.get("/refresh-token", refreshAccessToken);
 
-/**
- * @route POST /auth/login
- * @desc Login user controller
- * @access public
- */
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPasswordValidation, resetPassword);
+router.get("/logout", authMiddleware, logoutUser);
 
-/**
- * @route POST /auth/logout
- * @desc logout user controller
- * @access private
- */
-
-/**
- * @route POST /auth/forgot-password
- * @desc forgot password controller
- * @access public
- */
-
-/**
- * @route POST /auth/reset-password
- * @desc reset password controller
- * @access public
- */
-
-/**
- * @route POST /auth/refresh-token
- * @desc Refresh access token controller
- * @access public
- */
+export { router as authRouter };

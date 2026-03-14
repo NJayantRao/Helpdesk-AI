@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import ApiError from "./api-error.js";
 
-const AsyncHandler = async (fn: any) => {
+const AsyncHandler = (fn: any) => {
   return async function (req: Request, res: Response, next: NextFunction) {
     try {
       const result = await fn(req, res, next);

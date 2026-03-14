@@ -1,7 +1,28 @@
 import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import { ENV } from "./lib/env.js";
+import { rateLimiter } from "./middlewares/rate-limit-middleware.js";
+import { authRouter } from "./routes/auth.routes.js";
 
 const app = express();
 
+app.use(
+  cors({
+    origin: [ENV.FRONTEND_LOCAL_URL, ENV.FRONTEND_PROD_URL],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+app.options(/.*/, cors());
+
+app.use(express.json());
+
+app.use(cookieParser());
+
+app.use(rateLimiter);
 /**
  * @route GET /health-check
  * @description Health check endpoint to verify if the server is running and healthy.
@@ -19,5 +40,7 @@ app.get("/health-check", (req, res) => {
 app.get("/", (req, res) => {
   res.status(200).json({ status: 200, message: "Server up n running... ✅✅" });
 });
+
+app.use("/api/v1/auth", authRouter);
 
 export default app;
