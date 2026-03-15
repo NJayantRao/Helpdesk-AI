@@ -18,7 +18,6 @@ import {
 import { AsyncHandler } from "../utils/async-handler.js";
 import jwt from "jsonwebtoken";
 import { uploadFileToCloudinary } from "../lib/cloudinary.js";
-import { checkAdmin, checkSystemUser } from "../utils/check-role.js";
 import { generateRollno } from "../utils/generate-rollno.js";
 
 /**
@@ -117,7 +116,7 @@ export const registerStudent = AsyncHandler(async (req: any, res: any) => {
 });
 
 /**
- * @route POST /auth/student/register
+ * @route POST /auth/admin/register
  * @desc Register user controller
  * @access private
  */
@@ -274,6 +273,10 @@ export const logoutUser = AsyncHandler(async (req: any, res: any) => {
   const userId = req.user.id;
   const refreshToken = req?.cookies?.refreshToken;
 
+  if (!refreshToken) {
+    return res.status(401).json(new ApiError(401, "Unauthorized request"));
+  }
+
   await redisClient.set(`blackList-token:${refreshToken}`, "BLOCKED", {
     EX: 7 * 24 * 60 * 60,
   });
@@ -378,9 +381,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
         .json(new ApiError(401, "Session expired. Please login again."));
     }
 
-    const accessToken = jwt.sign({ id, email, role }, ENV.ACCESS_TOKEN_SECRET, {
-      expiresIn: "15m",
-    });
+    const accessToken = generateAccessToken({ id, email, role });
 
     res.cookie("accessToken", accessToken, baseOptions);
 

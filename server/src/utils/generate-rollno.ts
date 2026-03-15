@@ -6,7 +6,7 @@ export const generateRollno = async (gender: string) => {
   let suffix = "1";
   const lastStudent = await prisma.student.findFirst({
     where: {
-      rollNumber: parseInt(`${prefix}`),
+      rollNumber: { gte: 202600000, lt: 202700000 },
     },
     orderBy: { rollNumber: "desc" },
   });

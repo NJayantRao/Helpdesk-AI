@@ -25,18 +25,18 @@ const router = express.Router();
 
 router.post(
   "/student/register",
-  upload.single("profile-image"),
-  studentRegistrationValidation,
   authMiddleware,
   authorizeSystemUser,
+  upload.single("profile-image"),
+  studentRegistrationValidation,
   registerStudent
 );
 router.post(
   "/admin/register",
-  upload.single("profile-image"),
-  adminRegistrationValidation,
   authMiddleware,
   authorizeSystemUser,
+  upload.single("profile-image"),
+  adminRegistrationValidation,
   registerAdmin
 );
 router.post("/login", userLoginValidation, loginUser);
@@ -44,6 +44,6 @@ router.get("/refresh-token", refreshAccessToken);
 
 // router.post("/forgot-password", forgotPassword);
 // router.post("/reset-password", resetPasswordValidation, resetPassword);
-router.get("/logout", authMiddleware, logoutUser);
+router.post("/logout", authMiddleware, logoutUser);
 
 export { router as authRouter };

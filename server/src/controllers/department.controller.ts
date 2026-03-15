@@ -11,8 +11,6 @@ export const createDepartment = AsyncHandler(async (req: any, res: any) => {
     },
   });
 
-  console.log(newDepartment);
-
   return res
     .status(201)
     .json(
