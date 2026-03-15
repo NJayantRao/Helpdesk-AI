@@ -38,3 +38,25 @@ export const getStudentProfile = AsyncHandler(async (req: any, res: any) => {
       new ApiResponse(200, "Student profile fetched successfully", student)
     );
 });
+
+export const getStudentSubjects = AsyncHandler(async (req: any, res: any) => {
+  const userId = req.user.id;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, student: true },
+  });
+  if (!user?.student) {
+    return res.status(404).json({ message: "Student subjects not found" });
+  }
+
+  const subjects = await prisma.student.findUnique({
+    where: { id: userId },
+    select: { subjects: true },
+  });
+
+  console.log(subjects);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Subjects fetched successfully"));
+});
