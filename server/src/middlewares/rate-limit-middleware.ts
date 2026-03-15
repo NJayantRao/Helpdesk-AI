@@ -4,9 +4,13 @@ import ApiError from "../utils/api-error.js";
 const rateLimiter = async (req: any, res: any, next: any) => {
   try {
     const ip = req.ip;
-
-    const rateLimitKey = `rate-limit:${ip}`;
-
+    const email = req?.email;
+    let rateLimitKey;
+    if (email) {
+      rateLimitKey = `rate-limit:${ip}-${email}`;
+    } else {
+      rateLimitKey = `rate-limit:${ip}`;
+    }
     const requests = await redisClient.incr(rateLimitKey);
 
     if (requests === 1) {
