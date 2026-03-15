@@ -23,6 +23,11 @@ enum Gender {
   OTHERS
 }
 
+enum ResultStatus {
+  PASS
+  FAILED
+}
+
 model User {
   id String @id @default(uuid())
   fullName String
@@ -82,6 +87,7 @@ model Subject {
   subjectName String
   subjectCode String @unique
   credits Int
+  semester Int @default(1)
   department Department @relation(fields: [departmentId],references: [id])
   departmentId String 
   student Student[]
@@ -110,6 +116,7 @@ model Result {
   subject Subject @relation(fields: [subjectId],references: [id])
   subjectId String
   semester Int
+  status ResultStatus  @default(PASS)
   marks Float
   grade String
   createdAt DateTime @default(now())
