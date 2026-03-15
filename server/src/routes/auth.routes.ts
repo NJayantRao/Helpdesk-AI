@@ -8,28 +8,35 @@ import {
   registerStudent,
   resetPassword,
 } from "../controllers/auth.controller.js";
-import { authMiddleware } from "../middlewares/auth-middleware.js";
 import {
+  authMiddleware,
+  authorizeSystemUser,
+} from "../middlewares/auth-middleware.js";
+import {
+  adminRegistrationValidation,
   resetPasswordValidation,
+  studentRegistrationValidation,
   userLoginValidation,
-  userRegistrationValidation,
 } from "../middlewares/validator.js";
 import { upload } from "../lib/multer.js";
+import { log } from "console";
 
 const router = express.Router();
 
 router.post(
-  "student/register",
+  "/student/register",
   upload.single("profile-image"),
-  userRegistrationValidation,
+  studentRegistrationValidation,
   authMiddleware,
+  authorizeSystemUser,
   registerStudent
 );
 router.post(
-  "admin/register",
+  "/admin/register",
   upload.single("profile-image"),
-  userRegistrationValidation,
+  adminRegistrationValidation,
   authMiddleware,
+  authorizeSystemUser,
   registerAdmin
 );
 router.post("/login", userLoginValidation, loginUser);

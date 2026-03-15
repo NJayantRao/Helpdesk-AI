@@ -40,4 +40,24 @@ const generateRefreshToken = (userData: IPayload) => {
   return token;
 };
 
-export { generateAccessToken, generateRefreshToken, authMiddleware };
+const authorizeAdmin = (req: any, res: any, next: any) => {
+  if (req.user.role !== "ADMIN") {
+    return res.status(403).json(new ApiError(403, "Access Forbidden"));
+  }
+  next();
+};
+
+const authorizeSystemUser = (req: any, res: any, next: any) => {
+  if (req.user.role !== "SYSTEM") {
+    return res.status(403).json(new ApiError(403, "Access Forbidden"));
+  }
+  next();
+};
+
+export {
+  generateAccessToken,
+  generateRefreshToken,
+  authMiddleware,
+  authorizeAdmin,
+  authorizeSystemUser,
+};

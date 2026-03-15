@@ -7,7 +7,6 @@ import {
 } from "../middlewares/auth-middleware.js";
 import ApiError from "../utils/api-error.js";
 import ApiResponse from "../utils/api-response.js";
-// import AsyncHandler from "../utils/async-handler.js";
 import { comparePassword, hashPassword } from "../utils/bcrypt.js";
 import crypto from "crypto";
 import type { Request, Response, NextFunction } from "express";
@@ -19,21 +18,18 @@ import {
 import { AsyncHandler } from "../utils/async-handler.js";
 import jwt from "jsonwebtoken";
 import { uploadFileToCloudinary } from "../lib/cloudinary.js";
-import { checkAdmin, checkSystem } from "../utils/check-role.js";
+import { checkAdmin, checkSystemUser } from "../utils/check-role.js";
+import { generateRollno } from "../utils/generate-rollno.js";
 
 /**
  * @route POST /auth/student/register
- * @desc Register user controller
+ * @desc Register student controller
  * @access private
  */
 export const registerStudent = AsyncHandler(async (req: any, res: any) => {
-  const { fullName, email, password, gender, branch, Hostel, departmentId } =
+  const { fullName, email, password, gender, branch, isHostel, departmentId } =
     req.body;
   let attachment = null;
-
-  if (!checkSystem(req.user)) {
-    return res.status(403).json(new ApiError(403, "Access Forbidden"));
-  }
 
   //check user exists or not
   const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -53,7 +49,7 @@ export const registerStudent = AsyncHandler(async (req: any, res: any) => {
     attachment = cloudinaryResult.secure_url;
   }
 
-  const isHostelite = Hostel === "true" ? true : false;
+  const isHostelite = isHostel === "true" ? true : false;
   //create new user
   const user = await prisma.user.create({
     data: {
@@ -74,11 +70,13 @@ export const registerStudent = AsyncHandler(async (req: any, res: any) => {
     },
   });
 
+  const rollno = await generateRollno(gender);
+
   //create student
   const newStudent = await prisma.student.create({
     data: {
       userId: user.id,
-      rollNumber: "1",
+      rollNumber: rollno,
       branch,
       semester: 3,
       admissionYear: 2023,
@@ -135,10 +133,6 @@ export const registerAdmin = AsyncHandler(async (req: any, res: any) => {
   } = req.body;
   let attachment = null;
 
-  if (!checkSystem(req.user)) {
-    return res.status(403).json(new ApiError(403, "Access Forbidden"));
-  }
-
   //check user exists or not
   const existingUser = await prisma.user.findUnique({ where: { email } });
 
@@ -164,6 +158,7 @@ export const registerAdmin = AsyncHandler(async (req: any, res: any) => {
       email,
       password: hashedPassword,
       avatarUrl: attachment,
+      role: "ADMIN",
       gender,
       departmentId,
     },
@@ -219,54 +214,12 @@ export const registerAdmin = AsyncHandler(async (req: any, res: any) => {
 });
 
 /**
- * @route POST /auth/student/login
+ * @route POST /auth/login
  * @desc Login user controller
  * @access public
  */
 export const loginUser = AsyncHandler(async (req: any, res: any) => {
   const { email, password } = req.body;
-
-  const user = await prisma.user.findUnique({ where: { email } });
-
-  if (!user) {
-    return res.status(404).json(new ApiError(404, "User not found"));
-  }
-  const isMatched = await comparePassword(password, user.password);
-  if (!isMatched) {
-    return res.status(401).json(new ApiError(401, "Invalid credentials"));
-  }
-
-  //access & refresh token
-  const payload = {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-  };
-
-  const accessToken = generateAccessToken(payload);
-  const refreshToken = generateRefreshToken(payload);
-
-  res.cookie("accessToken", accessToken, baseOptions);
-  res.cookie("refreshToken", refreshToken, refreshTokenOptions);
-
-  await redisClient.set(`refresh-token:${user.id}`, refreshToken, {
-    EX: 7 * 24 * 60 * 60,
-  });
-
-  return res.status(200).json(
-    new ApiResponse(200, "User logged in successfully...", {
-      accessToken,
-      refreshToken,
-    })
-  );
-});
-
-export const loginAdmin = AsyncHandler(async (req: any, res: any) => {
-  const { email, password } = req.body;
-
-  if (!checkAdmin(req.user)) {
-    return res.status(403).json(new ApiError(403, "Access Forbidden"));
-  }
 
   const user = await prisma.user.findUnique({ where: { email } });
 
@@ -405,7 +358,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
       return res.status(401).json(new ApiError(401, "Unauthorized request"));
     }
     const blacklisted = await redisClient.get(
-      `blackList-token:${req?.cookies?.refreshToken}`
+      `blackList-token:${refreshToken}`
     );
     if (blacklisted === "BLOCKED") {
       return res.status(401).json(new ApiError(401, "Unauthorized request"));
@@ -415,7 +368,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
       refreshToken,
       ENV.REFRESH_TOKEN_SECRET
     ) as IPayload;
-    const { id, email } = decoded;
+    const { id, email, role } = decoded;
 
     const storedRefreshToken = await redisClient.get(`refresh-token:${id}`);
 
@@ -425,7 +378,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
         .json(new ApiError(401, "Session expired. Please login again."));
     }
 
-    const accessToken = jwt.sign({ id, email }, ENV.ACCESS_TOKEN_SECRET, {
+    const accessToken = jwt.sign({ id, email, role }, ENV.ACCESS_TOKEN_SECRET, {
       expiresIn: "15m",
     });
 
