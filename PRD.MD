@@ -201,33 +201,23 @@ Base: `/api/v1/auth/`
 | POST | `/register` | Register new user |
 | POST | `/login` | User login |
 | POST | `/logout` | Logout authenticated user |
-| GET | `/current-user` | Get current authenticated user |
-| POST | `/change-password` | Change password |
+| POST | `/forgot-password` | Forgot password |
+| POST | `/reset-password` | Reset password |
 
 ---
 
-### 5.2 User Routes
-
-Base: `/api/v1/users/`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/profile` | Get user profile |
-| PATCH | `/profile` | Update user profile |
-| GET | `/notifications` | Get user notifications |
-
----
-
-### 5.3 Student Routes
+### 5.2 Student Routes
 
 Base: `/api/v1/students/`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/dashboard` | Student dashboard data |
+| GET | `/profile` | Student dashboard data |
+| PUT | `/change-password` | Change password |
 | GET | `/cgpa` | Current CGPA |
 | GET | `/cgpa/history` | CGPA trend history |
 | GET | `/results` | Semester results |
+| GET | `/notifications` | Get user notifications |
 
 ---
 
@@ -237,13 +227,10 @@ Base: `/api/v1/admin/`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/upload-document` | Upload departmental document |
+| POST | `/upload-documents` | Upload departmental document |
 | POST | `/upload-result` | Upload result data |
-| GET | `/department-documents` | List department documents |
+| GET | `/upload-documents` | List department documents |
 | GET | `/users` | List all users |
-| POST | `/users` | Create new user |
-| PATCH | `/users/:id` | Update user |
-| DELETE | `/users/:id` | Remove user |
 
 ---
 

@@ -88,7 +88,7 @@ We adhere to the **Conventional Commits** specification.
 ## 3. Frontend Setup
 
 ```bash
-cd frontend
+cd client
 npm install
 npm run dev
 ```
@@ -106,7 +106,7 @@ http://localhost:3000
 ## 4. Backend Setup
 
 ```bash
-cd backend
+cd server
 npm install
 npm run dev
 ```

@@ -5,6 +5,8 @@ import { ENV } from "./lib/env.js";
 import { rateLimiter } from "./middlewares/rate-limit-middleware.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { departmentRouter } from "./routes/department.routes.js";
+import { studentRouter } from "./routes/student.routes.js";
+import { adminRouter } from "./routes/admin.routes.js";
 
 const app = express();
 
@@ -44,6 +46,8 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/student", studentRouter);
+app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1/department", departmentRouter);
 
 export default app;

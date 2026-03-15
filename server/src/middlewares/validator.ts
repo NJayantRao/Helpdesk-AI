@@ -118,12 +118,18 @@ export const resetPasswordValidation = [
   validateResult,
 ];
 
-export const usernameUpdateValidation = [
-  body("username")
+export const changePasswordValidation = [
+  body("oldPassword")
     .trim()
     .isString()
-    .withMessage("User name must be a string")
-    .isLength({ min: 3 })
-    .withMessage("User name must be at least 3 characters long"),
+    .withMessage("Password must be a string")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 3 characters long"),
+  body("newPassword")
+    .trim()
+    .isString()
+    .withMessage("Password must be a string")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 3 characters long"),
   validateResult,
 ];

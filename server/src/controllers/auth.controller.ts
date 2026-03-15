@@ -79,12 +79,12 @@ export const registerStudent = AsyncHandler(async (req: any, res: any) => {
       rollNumber: rollno,
       branch,
       semester: 3,
-      admissionYear: 2023,
+      admissionYear: new Date().getFullYear(),
       isHostelite,
     },
   });
 
-  //crate payload
+  //create payload
   const payload = {
     id: user.id,
     email,
