@@ -14,6 +14,7 @@ const ENV = {
   REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET!,
   FRONTEND_LOCAL_URL: process.env.FRONTEND_LOCAL_URL!,
   FRONTEND_PROD_URL: process.env.FRONTEND_PROD_URL!,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY!,
 };
 
 export { ENV };
