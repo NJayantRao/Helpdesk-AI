@@ -23,6 +23,16 @@ enum Gender {
   OTHERS
 }
 
+enum ResultStatus {
+  PASS
+  FAILED
+}
+enum NotificationType {
+  URGENT
+  INFO
+  WARNING
+  SUCCESS
+}
 model User {
   id String @id @default(uuid())
   fullName String
@@ -45,6 +55,7 @@ model Department {
   users User[]
   subjects Subject[]
   documents Document[]
+    notifications Notification[]   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -59,6 +70,7 @@ model Student {
   admissionYear Int
   isHostelite Boolean
   cgpa Float @default(0)
+  notificationReads NotificationRead[] 
   result Result[]
   subjects Subject[]
   attendance Attendance[]
@@ -82,6 +94,7 @@ model Subject {
   subjectName String
   subjectCode String @unique
   credits Int
+  semester Int @default(1)
   department Department @relation(fields: [departmentId],references: [id])
   departmentId String 
   student Student[]
@@ -110,6 +123,7 @@ model Result {
   subject Subject @relation(fields: [subjectId],references: [id])
   subjectId String
   semester Int
+  status ResultStatus  @default(PASS)
   marks Float
   grade String
   createdAt DateTime @default(now())
@@ -140,4 +154,28 @@ model Document {
   category String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id           String           @id @default(uuid())
+  title        String
+  body         String
+  source       String           // "Academic Office", "Placement Cell" etc.
+  type         NotificationType @default(INFO)
+  departmentId String?          // null = global (visible to all)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  department   Department?      @relation(fields: [departmentId], references: [id])
+  reads        NotificationRead[]
+}
+model NotificationRead {
+  id             String       @id @default(uuid())
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId      String
+  readAt         DateTime     @default(now())
+
+  @@unique([notificationId, studentId])
 }

@@ -7,6 +7,11 @@ import { authRouter } from "./routes/auth.routes.js";
 import { departmentRouter } from "./routes/department.routes.js";
 import { studentRouter } from "./routes/student.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
+import { subjectRouter } from "./routes/subject.routes.js";
+import { resultRouter } from "./routes/result.routes.js";
+import { companyRouter } from "./routes/company.routes.js";
+import { attendanceRouter } from "./routes/attendance.routes.js";
+import { documentRouter } from "./routes/document.routes.js";
 
 const app = express();
 
@@ -51,5 +56,10 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/student", studentRouter);
 app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1/department", departmentRouter);
+app.use("/api/v1/subject", subjectRouter);
+app.use("/api/v1/result", resultRouter);
+app.use("/api/v1/company", companyRouter);
+app.use("/api/v1/attendance", attendanceRouter);
+app.use("/api/v1/document", documentRouter);
 
 export default app;

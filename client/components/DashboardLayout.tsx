@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui";
 import type { User } from "@/types/index";
+import { mockNotifications } from "@/lib/utils";
+import FloatingHelpdesk from "@/components/FloatingHelpdesk";
 import {
   LayoutDashboard,
   GraduationCap,
   FileText,
-  MessageSquare,
   Users,
   Upload,
   Bell,
@@ -28,7 +29,6 @@ const studentNav = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/results", icon: GraduationCap, label: "Results & CGPA" },
   { href: "/dashboard/documents", icon: FileText, label: "Documents" },
-  { href: "/dashboard/helpdesk", icon: MessageSquare, label: "AI Helpdesk" },
   { href: "/dashboard/notifications", icon: Bell, label: "Notifications" },
 ];
 
@@ -38,7 +38,6 @@ const adminNav = [
   { href: "/admin/documents", icon: Upload, label: "Documents" },
   { href: "/admin/results", icon: BarChart3, label: "Upload Results" },
   { href: "/admin/departments", icon: Building2, label: "Departments" },
-  { href: "/admin/helpdesk", icon: MessageSquare, label: "AI Helpdesk" },
 ];
 
 interface DashboardLayoutProps {
@@ -139,11 +138,22 @@ function SidebarContent({
 
       {/* Bottom */}
       <div className="px-3 py-4 border-t border-slate-100 space-y-0.5">
-        <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all w-full">
-          <Settings size={17} /> Settings
-        </button>
         <Link
-          href="/"
+          href={
+            user.role === "student" ? "/dashboard/settings" : "/admin/settings"
+          }
+          onClick={() => setSidebarOpen(false)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full",
+            pathname.includes("/settings")
+              ? "bg-indigo-600 text-white"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          )}
+        >
+          <Settings size={17} /> Settings
+        </Link>
+        <Link
+          href="/login"
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all"
         >
           <LogOut size={17} /> Sign Out
@@ -162,6 +172,18 @@ export default function DashboardLayout({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const nav =
     user.role === "admin" || user.role === "system" ? adminNav : studentNav;
+
+  // Fixed topbar title — works for nested routes too
+  const currentNav = nav.find(
+    (n) =>
+      pathname === n.href ||
+      (n.href !== "/dashboard" &&
+        n.href !== "/admin" &&
+        pathname.startsWith(n.href))
+  );
+
+  // Bell dot only when there are unread notifications
+  const hasUnread = mockNotifications.some((n) => !n.read);
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -212,7 +234,7 @@ export default function DashboardLayout({
             </button>
             <div>
               <h1 className="text-sm font-semibold text-slate-900 capitalize">
-                {nav.find((n) => n.href === pathname)?.label || "Dashboard"}
+                {currentNav?.label || "Dashboard"}
               </h1>
               <p className="text-xs text-slate-400">
                 {user.department}{" "}
@@ -228,7 +250,9 @@ export default function DashboardLayout({
               className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-500"
             >
               <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+              {hasUnread && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+              )}
             </Link>
             <div className="relative">
               <button
@@ -246,11 +270,19 @@ export default function DashboardLayout({
                     </div>
                     <div className="text-xs text-slate-400">{user.email}</div>
                   </div>
-                  <button className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2">
-                    <Settings size={14} /> Settings
-                  </button>
                   <Link
-                    href="/"
+                    href={
+                      user.role === "student"
+                        ? "/dashboard/settings"
+                        : "/admin/settings"
+                    }
+                    onClick={() => setUserMenuOpen(false)}
+                    className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    <Settings size={14} /> Settings
+                  </Link>
+                  <Link
+                    href="/login"
                     className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
                   >
                     <LogOut size={14} /> Sign out
@@ -264,6 +296,9 @@ export default function DashboardLayout({
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-5">{children}</main>
       </div>
+
+      {/* Floating helpdesk — students only */}
+      {user.role === "student" && <FloatingHelpdesk />}
     </div>
   );
 }

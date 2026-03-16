@@ -235,8 +235,9 @@ export function StatCard({
 interface AvatarProps {
   name: string;
   size?: "sm" | "md" | "lg";
+  avatarUrl?: string | null;
 }
-export function Avatar({ name, size = "md" }: AvatarProps) {
+export function Avatar({ name, size = "md", avatarUrl }: AvatarProps) {
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -248,6 +249,16 @@ export function Avatar({ name, size = "md" }: AvatarProps) {
     md: "w-9 h-9 text-sm",
     lg: "w-12 h-12 text-base",
   };
+  if (avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt={name}
+        className={cn("rounded-full object-cover shrink-0", sizes[size])}
+      />
+    );
+  }
   return (
     <div
       className={cn(

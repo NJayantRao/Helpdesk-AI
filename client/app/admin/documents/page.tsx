@@ -1,410 +1,356 @@
 "use client";
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card, Badge, EmptyState } from "@/components/ui";
+import { Card, Button, Badge, EmptyState } from "@/components/ui";
 import { mockAdminUser, mockDocuments, DEPARTMENTS } from "@/lib/utils";
-import {
-  FileText,
-  Upload,
-  Search,
-  Trash2,
-  RefreshCw,
-  CheckCircle,
-  X,
-  CloudUpload,
-  Bell,
-  BookOpen,
-  GraduationCap,
-  ClipboardList,
-} from "lucide-react";
 import type { Document } from "@/types";
+import {
+  Upload,
+  FileText,
+  Search,
+  ExternalLink,
+  Trash2,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useRef } from "react";
 
-const TYPE_ICONS = {
-  notice: Bell,
-  circular: ClipboardList,
-  syllabus: BookOpen,
-  result: GraduationCap,
-};
-const TYPE_COLORS = {
-  notice: "primary",
+const CATEGORIES = ["Notice", "Circular", "Syllabus", "Result"];
+
+const TYPE_BADGE: Record<
+  string,
+  "primary" | "warning" | "success" | "danger" | "neutral"
+> = {
+  notice: "danger",
   circular: "warning",
-  syllabus: "success",
-  result: "danger",
-} as const;
+  syllabus: "primary",
+  result: "success",
+};
 
-type UploadStatus = "idle" | "uploading" | "embedding" | "done" | "error";
+function formatBytes(bytes: number) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function AdminDocumentsPage() {
   const [docs, setDocs] = useState<Document[]>(mockDocuments);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [showUpload, setShowUpload] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
-  const [form, setForm] = useState({
-    title: "",
-    type: "notice",
-    department: "",
-  });
-  const [dragOver, setDragOver] = useState(false);
-  const [fileName, setFileName] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("Notice");
+  const [department, setDepartment] = useState(DEPARTMENTS[0]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const filtered = docs.filter((d) => {
-    const matchSearch =
+  const filtered = docs.filter(
+    (d) =>
+      !search ||
       d.title.toLowerCase().includes(search.toLowerCase()) ||
-      d.department.toLowerCase().includes(search.toLowerCase());
-    const matchType = typeFilter === "all" || d.type === typeFilter;
-    return matchSearch && matchType;
-  });
+      d.department.toLowerCase().includes(search.toLowerCase())
+  );
 
-  function deleteDoc(id: string) {
-    setDocs((prev) => prev.filter((d) => d.id !== id));
+  function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadFile(files[0]);
   }
 
-  async function handleUpload(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!fileName) return;
-    setUploadStatus("uploading");
-    await new Promise((r) => setTimeout(r, 1000));
-    setUploadStatus("embedding");
-    await new Promise((r) => setTimeout(r, 1200));
-    setUploadStatus("done");
-    const newDoc: Document = {
-      id: Date.now().toString(),
-      title: form.title,
-      type: form.type as Document["type"],
-      department: form.department,
-      uploadedBy: mockAdminUser.name,
-      uploadedAt: new Date().toISOString().split("T")[0],
-      fileSize: "1.0 MB",
-    };
-    setDocs((prev) => [newDoc, ...prev]);
-    setTimeout(() => {
-      setShowUpload(false);
-      setUploadStatus("idle");
-      setForm({ title: "", type: "notice", department: "" });
-      setFileName("");
-    }, 1500);
+    if (!title || !uploadFile) return;
+    // TODO: call POST /api/v1/document/
+    alert(`Uploading "${title}" — API not connected yet.`);
+    setTitle("");
+    setCategory("Notice");
+    setDepartment(DEPARTMENTS[0]);
+    setUploadFile(null);
+  }
+
+  function handleDelete(id: string) {
+    // TODO: call DELETE /api/v1/document/:id
+    setDocs((prev) => prev.filter((d) => d.id !== id));
+    setDeletingId(null);
   }
 
   return (
     <DashboardLayout user={mockAdminUser}>
-      <div className="space-y-5 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2
-              className="text-xl font-bold text-slate-900"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              Document Management
-            </h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {docs.length} documents indexed in RAG
-            </p>
-          </div>
-          <button
-            onClick={() => setShowUpload(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-all shadow-sm"
+      <div className="space-y-6 animate-fade-in">
+        {/* Header */}
+        <div>
+          <h2
+            className="text-xl font-bold text-slate-900"
+            style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            <Upload size={15} /> Upload Document
-          </button>
+            Document Management
+          </h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Upload and manage university documents
+          </p>
         </div>
 
-        {/* Filters */}
-        <Card className="p-4 flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search
-              size={15}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search documents..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-            />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {["all", "notice", "circular", "syllabus", "result"].map((t) => (
-              <button
-                key={t}
-                onClick={() => setTypeFilter(t)}
-                className={`px-3 py-2 rounded-xl text-xs font-medium capitalize transition-all ${typeFilter === t ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+        {/* Upload Form */}
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">
+            Upload Document
+          </h3>
+          <form onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Title — full width */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Document Title
+                </label>
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. CS Semester 4 Syllabus"
+                  required
+                  className="w-full py-2.5 px-3.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Category
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full py-2.5 px-3.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Department */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Department
+                </label>
+                <select
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full py-2.5 px-3.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                >
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* File — full width */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  File
+                </label>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xlsx"
+                  className="hidden"
+                  onChange={(e) => handleFiles(e.target.files)}
+                />
+                {uploadFile ? (
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <FileText size={16} className="text-indigo-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-slate-800 truncate">
+                        {uploadFile.name}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {formatBytes(uploadFile.size)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setUploadFile(null)}
+                      className="p-1 hover:bg-slate-200 rounded-lg"
+                    >
+                      <X size={13} className="text-slate-400" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      "border-2 border-dashed rounded-xl py-6 flex flex-col items-center justify-center cursor-pointer text-center transition-all",
+                      dragging
+                        ? "border-indigo-400 bg-indigo-50/50"
+                        : "border-slate-200 hover:border-indigo-300"
+                    )}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragging(true);
+                    }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragging(false);
+                      handleFiles(e.dataTransfer.files);
+                    }}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <Upload size={20} className="text-slate-300 mb-2" />
+                    <p className="text-sm text-slate-500">
+                      Drag & drop or{" "}
+                      <span className="text-indigo-600 font-medium">
+                        browse
+                      </span>
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Supports: PDF, DOC, DOCX, PPT, XLSX
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit — full width */}
+              <div className="md:col-span-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  className="w-full justify-center"
+                  disabled={!title || !uploadFile}
+                >
+                  <Upload size={15} /> Upload Document
+                </Button>
+              </div>
+            </div>
+          </form>
         </Card>
 
-        {/* Documents Table */}
+        {/* Existing Documents Table */}
         <Card className="overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-4">
+            <h3 className="text-sm font-semibold text-slate-900">Documents</h3>
+            <div className="relative w-64">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search..."
+                className="w-full pl-9 pr-3.5 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all"
+              />
+            </div>
+          </div>
+
           {filtered.length === 0 ? (
-            <EmptyState
-              icon={<FileText size={22} />}
-              title="No documents found"
-            />
+            <div className="p-10">
+              <EmptyState
+                icon={<FileText size={22} />}
+                title="No documents found"
+              />
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 text-xs text-slate-400 font-medium">
-                    <th className="text-left px-5 py-3.5">Document</th>
-                    <th className="text-left px-5 py-3.5 hidden md:table-cell">
-                      Department
-                    </th>
-                    <th className="text-left px-5 py-3.5">Type</th>
-                    <th className="text-left px-5 py-3.5 hidden lg:table-cell">
-                      Uploaded
-                    </th>
-                    <th className="text-left px-5 py-3.5 hidden lg:table-cell">
-                      Size
-                    </th>
-                    <th className="text-right px-5 py-3.5">Actions</th>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    {[
+                      "Title",
+                      "Category",
+                      "Department",
+                      "Uploaded By",
+                      "Date",
+                      "Actions",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left text-xs font-semibold text-slate-500 px-5 py-3"
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filtered.map((d: Document) => {
-                    const Icon = TYPE_ICONS[d.type];
-                    return (
-                      <tr
-                        key={d.id}
-                        className="hover:bg-slate-50 transition-colors"
-                      >
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center shrink-0">
-                              <Icon size={14} className="text-indigo-600" />
-                            </div>
-                            <span className="font-medium text-slate-800 line-clamp-1">
-                              {d.title}
+                  {filtered.map((d) => (
+                    <tr
+                      key={d.id}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      <td className="px-5 py-3.5">
+                        <span className="font-medium text-slate-800">
+                          {d.title}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <Badge
+                          label={
+                            d.type.charAt(0).toUpperCase() + d.type.slice(1)
+                          }
+                          variant={TYPE_BADGE[d.type] || "neutral"}
+                        />
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-500">
+                        {d.department}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-500">
+                        {d.uploadedBy}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-400">
+                        {new Date(d.uploadedAt).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {deletingId === d.id ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500">
+                              Sure?
                             </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-500 hidden md:table-cell">
-                          {d.department}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <Badge label={d.type} variant={TYPE_COLORS[d.type]} />
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-400 text-xs hidden lg:table-cell">
-                          {new Date(d.uploadedAt).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-400 text-xs hidden lg:table-cell">
-                          {d.fileSize}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center justify-end gap-1.5">
                             <button
-                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                              title="Re-index"
+                              onClick={() => handleDelete(d.id)}
+                              className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg transition-colors"
                             >
-                              <RefreshCw size={13} />
+                              Yes, delete
                             </button>
                             <button
-                              onClick={() => deleteDoc(d.id)}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                              title="Delete"
+                              onClick={() => setDeletingId(null)}
+                              className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 border border-slate-200 rounded-lg"
                             >
-                              <Trash2 size={13} />
+                              Cancel
                             </button>
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                window.open(d.url || "#", "_blank")
+                              }
+                              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                              <ExternalLink size={14} />
+                            </button>
+                            <button
+                              onClick={() => setDeletingId(d.id)}
+                              className="p-1.5 hover:bg-red-50 rounded-lg text-red-300 hover:text-red-600 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
         </Card>
       </div>
-
-      {/* Upload Modal */}
-      {showUpload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => uploadStatus === "idle" && setShowUpload(false)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-slide-up">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <CloudUpload size={16} className="text-indigo-600" />
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Upload Document
-                </h3>
-              </div>
-              {uploadStatus === "idle" && (
-                <button
-                  onClick={() => setShowUpload(false)}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-
-            {uploadStatus === "done" ? (
-              <div className="p-8 text-center">
-                <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle size={28} className="text-emerald-600" />
-                </div>
-                <h4 className="text-sm font-semibold text-slate-900 mb-1">
-                  Upload Complete!
-                </h4>
-                <p className="text-xs text-slate-500">
-                  Document chunked, embedded, and indexed in Qdrant.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleUpload} className="p-5 space-y-4">
-                {/* Drop Zone */}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragOver(false);
-                    const f = e.dataTransfer.files[0];
-                    if (f) setFileName(f.name);
-                  }}
-                  onClick={() => fileRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragOver ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"}`}
-                >
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    className="hidden"
-                    onChange={(e) =>
-                      e.target.files?.[0] && setFileName(e.target.files[0].name)
-                    }
-                  />
-                  <Upload size={22} className="text-slate-400 mx-auto mb-2" />
-                  {fileName ? (
-                    <div>
-                      <p className="text-sm font-medium text-indigo-700">
-                        {fileName}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        File selected
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-sm text-slate-600 font-medium">
-                        Drop PDF here or click to browse
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        PDF, DOC, DOCX — up to 50MB
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                    Document Title *
-                  </label>
-                  <input
-                    required
-                    value={form.title}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, title: e.target.value }))
-                    }
-                    placeholder="e.g. CS Sem 4 Syllabus 2026"
-                    className="w-full py-2.5 px-3.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                      Type *
-                    </label>
-                    <select
-                      value={form.type}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, type: e.target.value }))
-                      }
-                      className="w-full py-2.5 px-3.5 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 cursor-pointer"
-                    >
-                      <option value="notice">Notice</option>
-                      <option value="circular">Circular</option>
-                      <option value="syllabus">Syllabus</option>
-                      <option value="result">Result</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                      Department *
-                    </label>
-                    <select
-                      required
-                      value={form.department}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, department: e.target.value }))
-                      }
-                      className="w-full py-2.5 px-3.5 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 cursor-pointer"
-                    >
-                      <option value="">Select</option>
-                      {DEPARTMENTS.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {(uploadStatus === "uploading" ||
-                  uploadStatus === "embedding") && (
-                  <div className="p-3 bg-indigo-50 rounded-xl">
-                    <div className="flex items-center gap-2 text-xs font-medium text-indigo-700 mb-2">
-                      <span className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-indigo-600 rounded-full animate-spin" />
-                      {uploadStatus === "uploading"
-                        ? "Uploading document..."
-                        : "Chunking & embedding into Qdrant..."}
-                    </div>
-                    <div className="w-full bg-indigo-200 rounded-full h-1">
-                      <div
-                        className="bg-indigo-600 h-1 rounded-full transition-all duration-500"
-                        style={{
-                          width: uploadStatus === "uploading" ? "40%" : "85%",
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowUpload(false)}
-                    className="flex-1 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!fileName || uploadStatus !== "idle"}
-                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Upload size={14} /> Upload & Index
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </DashboardLayout>
   );
 }

@@ -1,22 +1,16 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { StatCard, Card, Badge, Avatar } from "@/components/ui";
-import {
-  mockAdminUser,
-  mockDocuments,
-  mockUsers,
-  mockNotifications,
-} from "@/lib/utils";
+import { StatCard, Card, Badge } from "@/components/ui";
+import { mockAdminUser, mockUsers, mockDocuments } from "@/lib/utils";
+import { AdminDashboardSkeleton } from "@/components/Skeleton";
 import {
   Users,
   FileText,
-  GraduationCap,
-  Bell,
   Upload,
+  Building2,
+  BookOpen,
   ChevronRight,
-  TrendingUp,
-  Activity,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -31,17 +25,69 @@ import {
 } from "recharts";
 
 const deptData = [
-  { dept: "CS", students: 180 },
-  { dept: "ECE", students: 140 },
-  { dept: "ME", students: 120 },
-  { dept: "Civil", students: 95 },
-  { dept: "Chem", students: 70 },
+  { dept: "CS", students: 312 },
+  { dept: "ECE", students: 289 },
+  { dept: "ME", students: 203 },
+  { dept: "Civil", students: 178 },
+  { dept: "Chem", students: 142 },
+];
+
+const COLORS = ["#4f46e5", "#10b981", "#f59e0b", "#f97316", "#ef4444"];
+
+const quickActions = [
+  {
+    href: "/admin/users",
+    icon: Users,
+    label: "User Management",
+    sub: "View all users",
+    color: "text-indigo-600 bg-indigo-50",
+  },
+  {
+    href: "/admin/results",
+    icon: Upload,
+    label: "Upload Results",
+    sub: "CSV / Excel upload",
+    color: "text-emerald-600 bg-emerald-50",
+  },
+  {
+    href: "/admin/documents",
+    icon: FileText,
+    label: "Documents",
+    sub: "Manage files",
+    color: "text-amber-600 bg-amber-50",
+  },
+  {
+    href: "/admin/departments",
+    icon: Building2,
+    label: "Departments",
+    sub: "Manage departments",
+    color: "text-sky-600 bg-sky-50",
+  },
 ];
 
 export default function AdminDashboard() {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (loading) {
+    return (
+      <DashboardLayout user={mockAdminUser}>
+        <AdminDashboardSkeleton />
+      </DashboardLayout>
+    );
+  }
+
+  const students = mockUsers.filter((u) => u.role === "student");
+  const admins = mockUsers.filter((u) => u.role === "admin");
+
   return (
     <DashboardLayout user={mockAdminUser}>
       <div className="space-y-6 animate-fade-in">
+        {/* Header */}
         <div>
           <h2
             className="text-xl font-bold text-slate-900"
@@ -59,60 +105,45 @@ export default function AdminDashboard() {
           <StatCard
             title="Total Students"
             value="5,248"
-            subtitle="+124 this sem"
-            icon={<GraduationCap size={18} />}
+            subtitle="Across all departments"
+            icon={<Users size={18} />}
             color="indigo"
-            trend="up"
           />
           <StatCard
             title="Total Users"
             value={mockUsers.length}
-            subtitle="All roles"
-            icon={<Users size={18} />}
-            color="sky"
+            subtitle={`${students.length} students · ${admins.length} admins`}
+            icon={<BookOpen size={18} />}
+            color="emerald"
           />
           <StatCard
             title="Documents"
             value={mockDocuments.length}
-            subtitle="Indexed in RAG"
+            subtitle="All departments"
             icon={<FileText size={18} />}
-            color="emerald"
+            color="amber"
           />
           <StatCard
             title="Active Notices"
-            value="3"
+            value={12}
             subtitle="This month"
-            icon={<Bell size={18} />}
-            color="amber"
+            icon={<Upload size={18} />}
+            color="sky"
           />
         </div>
 
-        {/* Charts + Quick Actions */}
+        {/* Chart + Quick Actions */}
         <div className="grid lg:grid-cols-3 gap-5">
           <Card className="p-5 lg:col-span-2">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Students by Department
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Enrollment distribution
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                <TrendingUp size={13} /> +8% YoY
-              </div>
-            </div>
+            <h3 className="text-sm font-semibold text-slate-900 mb-4">
+              Students by Department
+            </h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart
                 data={deptData}
-                margin={{ top: 5, right: 10, left: -25, bottom: 0 }}
+                margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#f1f5f9"
-                  vertical={false}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis
                   dataKey="dept"
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
@@ -132,69 +163,41 @@ export default function AdminDashboard() {
                     fontSize: "12px",
                   }}
                 />
-                <Bar dataKey="students" radius={[6, 6, 0, 0]} name="Students">
+                <Bar dataKey="students" name="Students" radius={[4, 4, 0, 0]}>
                   {deptData.map((_, i) => (
-                    <Cell key={i} fill={i === 0 ? "#4f46e5" : "#e0e7ff"} />
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </Card>
 
+          {/* Quick Actions */}
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-slate-900 mb-4">
               Quick Actions
             </h3>
             <div className="space-y-2">
-              {[
-                {
-                  href: "/admin/users",
-                  icon: Users,
-                  label: "Manage Users",
-                  sub: `${mockUsers.length} total`,
-                  color: "indigo",
-                },
-                {
-                  href: "/admin/documents",
-                  icon: Upload,
-                  label: "Upload Documents",
-                  sub: "Add to RAG store",
-                  color: "emerald",
-                },
-                {
-                  href: "/admin/results",
-                  icon: GraduationCap,
-                  label: "Upload Results",
-                  sub: "Batch import",
-                  color: "amber",
-                },
-                {
-                  href: "/admin/departments",
-                  icon: Activity,
-                  label: "Departments",
-                  sub: "5 departments",
-                  color: "sky",
-                },
-              ].map((item) => (
+              {quickActions.map((a) => (
                 <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 group transition-all"
+                  key={a.href}
+                  href={a.href}
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-all group"
                 >
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${item.color}-50 text-${item.color}-600 shrink-0`}
+                    className={`w-9 h-9 ${a.color} rounded-xl flex items-center justify-center`}
                   >
-                    <item.icon size={16} />
+                    <a.icon size={16} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-slate-800">
-                      {item.label}
+                      {a.label}
                     </div>
-                    <div className="text-xs text-slate-400">{item.sub}</div>
+                    <div className="text-xs text-slate-400">{a.sub}</div>
                   </div>
                   <ChevronRight
                     size={14}
-                    className="text-slate-300 group-hover:text-slate-500"
+                    className="text-slate-300 group-hover:text-slate-500 transition-colors"
                   />
                 </Link>
               ))}
@@ -204,6 +207,7 @@ export default function AdminDashboard() {
 
         {/* Recent Users + Recent Documents */}
         <div className="grid lg:grid-cols-2 gap-5">
+          {/* Recent Users */}
           <Card className="overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900">
@@ -220,15 +224,20 @@ export default function AdminDashboard() {
               {mockUsers.slice(0, 4).map((u) => (
                 <div
                   key={u.id}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors"
+                  className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors"
                 >
-                  <Avatar name={u.name} size="sm" />
+                  <div className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center text-xs font-bold text-indigo-700">
+                    {u.name.charAt(0)}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-slate-800 truncate">
                       {u.name}
                     </div>
                     <div className="text-xs text-slate-400 truncate">
                       {u.email}
+                      {u.role === "student" && u.semester
+                        ? ` · Sem ${u.semester}`
+                        : ""}
                     </div>
                   </div>
                   <Badge
@@ -240,6 +249,7 @@ export default function AdminDashboard() {
             </div>
           </Card>
 
+          {/* Recent Documents */}
           <Card className="overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900">
@@ -256,9 +266,9 @@ export default function AdminDashboard() {
               {mockDocuments.slice(0, 4).map((d) => (
                 <div
                   key={d.id}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors"
+                  className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors"
                 >
-                  <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center">
                     <FileText size={14} className="text-slate-500" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -270,14 +280,8 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <Badge
-                    label={d.type}
-                    variant={
-                      d.type === "result"
-                        ? "danger"
-                        : d.type === "circular"
-                          ? "warning"
-                          : "success"
-                    }
+                    label={d.type.charAt(0).toUpperCase() + d.type.slice(1)}
+                    variant="neutral"
                   />
                 </div>
               ))}
