@@ -1,11 +1,11 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card, Badge } from "@/components/ui";
-import { mockUser, mockResults, mockStats } from "@/lib/utils";
+import { StatCard, Card, Badge } from "@/components/ui";
+import { mockUser, mockStats, mockResults } from "@/lib/utils";
+import { ResultsSkeleton } from "@/components/Skeleton";
+import { GraduationCap, TrendingUp, Award, AlertTriangle } from "lucide-react";
 import {
-  BarChart,
-  Bar,
   LineChart,
   Line,
   XAxis,
@@ -13,33 +13,86 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  BarChart,
+  Bar,
   Cell,
 } from "recharts";
-import {
-  TrendingUp,
-  Award,
-  BookOpen,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
 
-const gradeColors: Record<string, string> = {
+const GRADE_COLORS: Record<string, string> = {
   "A+": "#10b981",
   A: "#4f46e5",
   "B+": "#f59e0b",
   B: "#f97316",
   C: "#ef4444",
+  D: "#dc2626",
+  F: "#991b1b",
 };
 
+const chartData = mockResults
+  .filter((r) => r.sgpa > 0)
+  .map((r) => ({ name: `Sem ${r.semester}`, sgpa: r.sgpa, cgpa: r.cgpa }));
+
+const lastTwo = chartData.slice(-2);
+const computedTrend =
+  lastTwo.length >= 2
+    ? lastTwo[1].cgpa > lastTwo[0].cgpa
+      ? "Improving"
+      : lastTwo[1].cgpa < lastTwo[0].cgpa
+        ? "Declining"
+        : "Stable"
+    : "Stable";
+
+// Computed from data (not from mockStats)
+const totalBacklogs = mockResults
+  .flatMap((r) => r.subjects)
+  .filter((s) => s.grade === "F").length;
+
+const totalCredits = mockResults
+  .filter((r) => r.sgpa > 0)
+  .reduce(
+    (sum, r) => sum + r.subjects.reduce((s2, sub) => s2 + sub.credits, 0),
+    0
+  );
+
+// mockStats available in utils.ts for future API integration
+
+const gradeDistData = Object.entries(
+  mockResults
+    .flatMap((r) => r.subjects)
+    .reduce(
+      (acc, s) => {
+        acc[s.grade] = (acc[s.grade] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    )
+).map(([grade, count]) => ({ grade, count }));
+
 export default function ResultsPage() {
-  const [expandedSem, setExpandedSem] = useState<number | null>(3);
-  const chartData = mockResults
-    .filter((r) => r.sgpa > 0)
-    .map((r) => ({ name: `Sem ${r.semester}`, sgpa: r.sgpa, cgpa: r.cgpa }));
+  const [expandedSem, setExpandedSem] = useState<number | null>(
+    mockResults.filter((r) => r.sgpa > 0).at(-1)?.semester ?? null
+  );
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (loading) {
+    return (
+      <DashboardLayout user={mockUser}>
+        <ResultsSkeleton />
+      </DashboardLayout>
+    );
+  }
+
+  const latestCompleted = chartData.at(-1);
 
   return (
     <DashboardLayout user={mockUser}>
       <div className="space-y-6 animate-fade-in">
+        {/* Header */}
         <div>
           <h2
             className="text-xl font-bold text-slate-900"
@@ -48,61 +101,61 @@ export default function ResultsPage() {
             Results & CGPA
           </h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            Semester-wise academic performance and trend analysis
+            Academic performance across all semesters
           </p>
         </div>
 
-        {/* Summary Cards */}
+        {/* Summary Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            {
-              label: "Current CGPA",
-              value: mockStats.currentCGPA,
-              sub: "Out of 10.0",
-              color: "text-indigo-700 bg-indigo-50",
-            },
-            {
-              label: "Latest SGPA",
-              value: "8.8",
-              sub: "Semester 3",
-              color: "text-emerald-700 bg-emerald-50",
-            },
-            {
-              label: "Total Credits",
-              value: mockStats.totalCredits,
-              sub: "Earned",
-              color: "text-amber-700 bg-amber-50",
-            },
-            {
-              label: "Backlogs",
-              value: mockStats.backlogs,
-              sub: "Active",
-              color: "text-slate-700 bg-slate-100",
-            },
-          ].map((s) => (
-            <Card key={s.label} className="p-5">
-              <div
-                className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold mb-2 ${s.color}`}
-              >
-                {s.sub}
-              </div>
-              <div className="text-2xl font-bold text-slate-900">{s.value}</div>
-              <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
-            </Card>
-          ))}
+          <StatCard
+            title="Current CGPA"
+            value={mockResults.filter((r) => r.sgpa > 0).at(-1)?.cgpa ?? "—"}
+            subtitle="Cumulative"
+            icon={<GraduationCap size={18} />}
+            color="indigo"
+            trend="up"
+          />
+          <StatCard
+            title="Latest SGPA"
+            value={latestCompleted?.sgpa ?? "—"}
+            subtitle={`Semester ${latestCompleted?.name.replace("Sem ", "") || "—"}`}
+            icon={<TrendingUp size={18} />}
+            color="emerald"
+          />
+          <StatCard
+            title="Total Credits"
+            value={totalCredits}
+            subtitle="Completed"
+            icon={<Award size={18} />}
+            color="sky"
+          />
+          <StatCard
+            title="Backlogs"
+            value={totalBacklogs}
+            subtitle={totalBacklogs === 0 ? "All cleared ✓" : "Pending"}
+            icon={<AlertTriangle size={18} />}
+            color={totalBacklogs === 0 ? "emerald" : "red"}
+          />
         </div>
 
-        {/* Charts */}
+        {/* Charts Row */}
         <div className="grid lg:grid-cols-2 gap-5">
+          {/* SGPA vs CGPA */}
           <Card className="p-5">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-900">
-                SGPA vs CGPA Trend
+                SGPA vs CGPA
               </h3>
-              <div className="flex items-center gap-1.5">
-                <TrendingUp size={14} className="text-emerald-500" />
-                <Badge label={mockStats.trend} variant="success" />
-              </div>
+              <Badge
+                label={computedTrend}
+                variant={
+                  computedTrend === "Improving"
+                    ? "success"
+                    : computedTrend === "Declining"
+                      ? "danger"
+                      : "neutral"
+                }
+              />
             </div>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart
@@ -128,6 +181,7 @@ export default function ResultsPage() {
                     border: "1px solid #e2e8f0",
                     borderRadius: "10px",
                     fontSize: "12px",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                   }}
                 />
                 <Line
@@ -150,28 +204,25 @@ export default function ResultsPage() {
               </LineChart>
             </ResponsiveContainer>
           </Card>
+
+          {/* Grade Distribution */}
           <Card className="p-5">
-            <h3 className="text-sm font-semibold text-slate-900 mb-5">
-              SGPA by Semester
+            <h3 className="text-sm font-semibold text-slate-900 mb-4">
+              Grade Distribution
             </h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart
-                data={chartData}
+                data={gradeDistData}
                 margin={{ top: 5, right: 10, left: -25, bottom: 0 }}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#f1f5f9"
-                  vertical={false}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis
-                  dataKey="name"
+                  dataKey="grade"
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  domain={[7.5, 10]}
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
                   axisLine={false}
                   tickLine={false}
@@ -184,11 +235,11 @@ export default function ResultsPage() {
                     fontSize: "12px",
                   }}
                 />
-                <Bar dataKey="sgpa" radius={[6, 6, 0, 0]} name="SGPA">
-                  {chartData.map((entry, i) => (
+                <Bar dataKey="count" name="Subjects" radius={[4, 4, 0, 0]}>
+                  {gradeDistData.map((entry) => (
                     <Cell
-                      key={i}
-                      fill={i === chartData.length - 1 ? "#4f46e5" : "#c7d2fe"}
+                      key={entry.grade}
+                      fill={GRADE_COLORS[entry.grade] || "#4f46e5"}
                     />
                   ))}
                 </Bar>
@@ -197,137 +248,142 @@ export default function ResultsPage() {
           </Card>
         </div>
 
-        {/* Semester Results */}
+        {/* Semester Accordion */}
         <Card className="overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-            <BookOpen size={16} className="text-indigo-600" />
+          <div className="px-5 py-4 border-b border-slate-100">
             <h3 className="text-sm font-semibold text-slate-900">
-              Semester Results
+              Semester-wise Results
             </h3>
           </div>
           <div className="divide-y divide-slate-100">
-            {mockResults
-              .filter((r) => r.sgpa > 0)
-              .map((sem) => (
-                <div key={sem.semester}>
-                  <button
-                    onClick={() =>
-                      setExpandedSem(
-                        expandedSem === sem.semester ? null : sem.semester
-                      )
-                    }
-                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center text-sm font-bold text-indigo-700">
-                        {sem.semester}
-                      </div>
-                      <div className="text-left">
-                        <div className="text-sm font-medium text-slate-800">
-                          Semester {sem.semester}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          {sem.year} · {sem.subjects.length} subjects
-                        </div>
-                      </div>
+            {mockResults.map((sem) => (
+              <div key={sem.semester}>
+                <button
+                  onClick={() =>
+                    setExpandedSem(
+                      expandedSem === sem.semester ? null : sem.semester
+                    )
+                  }
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-xs font-bold text-indigo-700">
+                      S{sem.semester}
                     </div>
-                    <div className="flex items-center gap-6">
-                      <div className="text-right">
-                        <div className="text-xs text-slate-400">SGPA</div>
-                        <div className="text-sm font-bold text-indigo-700">
-                          {sem.sgpa}
-                        </div>
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800">
+                        Semester {sem.semester}
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs text-slate-400">CGPA</div>
-                        <div className="text-sm font-bold text-slate-800">
-                          {sem.cgpa}
-                        </div>
-                      </div>
-                      {expandedSem === sem.semester ? (
-                        <ChevronUp size={16} className="text-slate-400" />
-                      ) : (
-                        <ChevronDown size={16} className="text-slate-400" />
-                      )}
+                      <div className="text-xs text-slate-400">{sem.year}</div>
                     </div>
-                  </button>
-                  {expandedSem === sem.semester && (
-                    <div className="px-5 pb-4 animate-slide-up">
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {sem.sgpa > 0 ? (
+                      <>
+                        <span className="text-xs text-slate-500">
+                          SGPA:{" "}
+                          <span className="font-semibold text-slate-800">
+                            {sem.sgpa}
+                          </span>
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          CGPA:{" "}
+                          <span className="font-semibold text-slate-800">
+                            {sem.cgpa}
+                          </span>
+                        </span>
+                      </>
+                    ) : (
+                      <Badge label="Upcoming" variant="neutral" />
+                    )}
+                    <span
+                      className={`text-slate-400 transition-transform duration-200 ${expandedSem === sem.semester ? "rotate-180" : ""}`}
+                    >
+                      ▾
+                    </span>
+                  </div>
+                </button>
+
+                {expandedSem === sem.semester && sem.subjects.length > 0 && (
+                  <div className="px-5 pb-4">
+                    <div className="overflow-x-auto rounded-xl border border-slate-100">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-xs text-slate-400 border-b border-slate-100">
-                            <th className="text-left py-2 font-medium">
+                          <tr className="bg-slate-50">
+                            <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3">
                               Subject
                             </th>
-                            <th className="text-center py-2 font-medium">
-                              Code
-                            </th>
-                            <th className="text-center py-2 font-medium">
+                            <th className="text-center text-xs font-semibold text-slate-500 px-4 py-3">
                               Credits
                             </th>
-                            <th className="text-center py-2 font-medium">
+                            <th className="text-center text-xs font-semibold text-slate-500 px-4 py-3">
                               Marks
                             </th>
-                            <th className="text-center py-2 font-medium">
+                            <th className="text-center text-xs font-semibold text-slate-500 px-4 py-3">
                               Grade
+                            </th>
+                            <th className="text-center text-xs font-semibold text-slate-500 px-4 py-3">
+                              Status
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody>
                           {sem.subjects.map((s) => (
                             <tr
                               key={s.code}
-                              className="hover:bg-slate-50 transition-colors"
+                              className="border-t border-slate-100 hover:bg-slate-50/50 transition-colors"
                             >
-                              <td className="py-2.5 font-medium text-slate-800">
-                                {s.name}
+                              <td className="px-4 py-3">
+                                <div className="font-medium text-slate-800">
+                                  {s.name}
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                  {s.code}
+                                </div>
                               </td>
-                              <td className="py-2.5 text-center text-slate-500 font-mono text-xs">
-                                {s.code}
-                              </td>
-                              <td className="py-2.5 text-center text-slate-500">
+                              <td className="px-4 py-3 text-center text-slate-600">
                                 {s.credits}
                               </td>
-                              <td className="py-2.5 text-center">
-                                <span className="text-slate-800 font-medium">
+                              <td className="px-4 py-3 text-center">
+                                <span className="font-semibold text-slate-800">
                                   {s.marks}
                                 </span>
                                 <span className="text-slate-400">
                                   /{s.maxMarks}
                                 </span>
                               </td>
-                              <td className="py-2.5 text-center">
+                              <td className="px-4 py-3 text-center">
                                 <span
-                                  className="px-2 py-0.5 rounded-md text-xs font-bold"
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold"
                                   style={{
-                                    background: `${gradeColors[s.grade]}20`,
-                                    color: gradeColors[s.grade],
+                                    background: `${GRADE_COLORS[s.grade] || "#94a3b8"}20`,
+                                    color: GRADE_COLORS[s.grade] || "#94a3b8",
                                   }}
                                 >
                                   {s.grade}
                                 </span>
                               </td>
+                              <td className="px-4 py-3 text-center">
+                                {s.grade === "F" ? (
+                                  <Badge label="FAIL" variant="danger" />
+                                ) : (
+                                  <Badge label="PASS" variant="success" />
+                                )}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                      <div className="flex gap-2 mt-3">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 rounded-lg">
-                          <Award size={12} className="text-indigo-600" />
-                          <span className="text-xs font-semibold text-indigo-700">
-                            SGPA: {sem.sgpa}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-lg">
-                          <span className="text-xs font-semibold text-slate-700">
-                            CGPA: {sem.cgpa}
-                          </span>
-                        </div>
-                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                )}
+                {expandedSem === sem.semester && sem.subjects.length === 0 && (
+                  <div className="px-5 pb-4 text-center text-sm text-slate-400 py-6">
+                    Results not yet available for this semester.
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </Card>
       </div>

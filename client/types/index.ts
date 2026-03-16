@@ -1,10 +1,13 @@
-export type UserRole = "system" | "admin" | "student";
+// ─── Legacy types (used by mock data + existing UI components) ───────────────
 
+export type UserRole = "STUDENT" | "ADMIN" | "SYSTEM";
+
+/** Legacy User shape — used by DashboardLayout and mock data */
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: "student" | "admin" | "system";
   rollNumber?: string;
   department?: string;
   semester?: number;
@@ -75,4 +78,97 @@ export interface StudentStats {
   backlogs: number;
   attendancePercent: number;
   trend: "Improving" | "Stable" | "Declining";
+}
+
+// ─── Auth context user (real API shape) ──────────────────────────────────────
+
+export interface AuthUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: UserRole;
+  avatarUrl: string | null;
+  // Student-only fields
+  rollNumber?: number;
+  semester?: number;
+  branch?: string;
+  department?: string;
+  cgpa?: number;
+  admissionYear?: number;
+  // Admin-only fields
+  designation?: string;
+}
+
+// ─── API response types ───────────────────────────────────────────────────────
+
+export interface SubjectResult {
+  resultId: string;
+  subjectName: string;
+  subjectCode: string;
+  credits: number;
+  marks: number;
+  grade: string;
+  status: "PASS" | "FAILED";
+}
+
+export interface SemesterData {
+  semester: number;
+  sgpa: number;
+  cgpa: number;
+  totalCredits: number;
+  backlogs: number;
+  subjects: SubjectResult[];
+}
+
+export interface CgpaHistoryPoint {
+  semester: number;
+  sgpa: number;
+  cgpa: number;
+  totalCredits: number;
+}
+
+export interface ResultsResponse {
+  cgpa: number;
+  cgpaHistory: CgpaHistoryPoint[];
+  semesters: SemesterData[];
+}
+
+export interface DocumentItem {
+  id: string;
+  title: string;
+  category: string;
+  fileUrl: string;
+  createdAt: string;
+  uploadedBy: {
+    user: { fullName: string };
+    designation: string;
+  };
+}
+
+export interface AttendanceItem {
+  id: string;
+  percentage: number;
+  subject: {
+    subjectName: string;
+    subjectCode: string;
+    credits: number;
+    semester: number;
+  };
+}
+
+export interface Company {
+  id: string;
+  companyName: string;
+  avgPackage: number;
+  eligibilityCgpa: number;
+  jobRole: string;
+  visitDate: string;
+}
+
+export interface UploadResultResponse {
+  totalRows: number;
+  inserted: number;
+  skipped: number;
+  failed: number;
+  errors: { row: number; reason: string }[];
 }

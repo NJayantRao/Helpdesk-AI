@@ -2,45 +2,49 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, Badge } from "@/components/ui";
-import { mockUser, mockNotifications } from "@/lib/utils";
-import { Bell, BellOff, CheckCheck, Filter } from "lucide-react";
+import { mockUser, mockNotifications as initial } from "@/lib/utils";
 import type { Notification } from "@/types";
+import { Bell, BellOff, CheckCheck } from "lucide-react";
 
-const TYPE_COLORS = {
-  urgent: "danger",
-  info: "primary",
-  warning: "warning",
-  success: "success",
-} as const;
-const TYPE_BG = {
-  urgent: "bg-red-500",
-  info: "bg-indigo-500",
-  warning: "bg-amber-500",
-  success: "bg-emerald-500",
+const TYPE_STYLES: Record<
+  string,
+  { border: string; badge: "danger" | "primary" | "warning" | "success" }
+> = {
+  urgent: { border: "border-l-red-500", badge: "danger" },
+  info: { border: "border-l-indigo-500", badge: "primary" },
+  warning: { border: "border-l-amber-500", badge: "warning" },
+  success: { border: "border-l-emerald-500", badge: "success" },
 };
 
+type FilterTab = "all" | "unread" | "read";
+
 export default function NotificationsPage() {
-  const [notifications, setNotifications] =
-    useState<Notification[]>(mockNotifications);
-  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [notifications, setNotifications] = useState<Notification[]>(initial);
+  const [filter, setFilter] = useState<FilterTab>("all");
 
-  const shown =
-    filter === "unread" ? notifications.filter((n) => !n.read) : notifications;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
-  function markAll() {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }
+  const filtered =
+    filter === "unread"
+      ? notifications.filter((n) => !n.read)
+      : filter === "read"
+        ? notifications.filter((n) => n.read)
+        : notifications;
+
   function markOne(id: string) {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
   }
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  function markAll() {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }
 
   return (
     <DashboardLayout user={mockUser}>
-      <div className="space-y-5 animate-fade-in max-w-3xl">
+      <div className="space-y-5 animate-fade-in">
+        {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <h2
@@ -53,89 +57,109 @@ export default function NotificationsPage() {
               {unreadCount} unread notification{unreadCount !== 1 ? "s" : ""}
             </p>
           </div>
-          <div className="flex gap-2">
-            <div className="flex bg-slate-100 rounded-xl p-1">
-              {(["all", "unread"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${filter === f ? "bg-white shadow-sm text-slate-900" : "text-slate-500"}`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAll}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
-              >
-                <CheckCheck size={13} /> Mark all read
-              </button>
-            )}
-          </div>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAll}
+              className="flex items-center gap-1.5 text-xs text-indigo-600 font-medium border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-all"
+            >
+              <CheckCheck size={13} /> Mark all read
+            </button>
+          )}
         </div>
 
-        {shown.length === 0 ? (
-          <Card className="p-12 text-center">
-            <BellOff size={32} className="text-slate-300 mx-auto mb-3" />
-            <p className="text-sm text-slate-500 font-medium">
-              No {filter === "unread" ? "unread " : ""}notifications
-            </p>
-          </Card>
-        ) : (
-          <div className="space-y-2.5">
-            {shown.map((n) => (
-              <Card
-                key={n.id}
-                className={`p-4 cursor-pointer transition-all hover:shadow-md ${!n.read ? "border-indigo-200 bg-indigo-50/30" : ""}`}
-                onClick={() => markOne(n.id)}
-              >
-                <div className="flex gap-4">
-                  <div
-                    className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 transition-all ${n.read ? "bg-slate-200" : TYPE_BG[n.type]}`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3 mb-1">
-                      <h3
-                        className={`text-sm font-semibold leading-snug ${n.read ? "text-slate-600" : "text-slate-900"}`}
-                      >
-                        {n.title}
-                      </h3>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge label={n.type} variant={TYPE_COLORS[n.type]} />
+        {/* Filter Tabs */}
+        <div className="flex gap-2">
+          {(["all", "unread", "read"] as FilterTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab)}
+              className={`px-4 py-2 rounded-xl text-xs font-medium capitalize transition-all flex items-center gap-1 ${
+                filter === tab
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {tab}
+              {tab === "unread" && unreadCount > 0 && (
+                <span className="ml-1 bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Notification List */}
+        <div className="space-y-3">
+          {filtered.length === 0 ? (
+            <Card className="p-12 text-center">
+              <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <BellOff size={22} className="text-slate-400" />
+              </div>
+              <p className="text-sm font-medium text-slate-600">
+                No {filter !== "all" ? filter : ""} notifications
+              </p>
+            </Card>
+          ) : (
+            filtered.map((n) => {
+              const style = TYPE_STYLES[n.type] || TYPE_STYLES.info;
+              return (
+                <Card
+                  key={n.id}
+                  className={`p-4 border-l-4 ${style.border} ${!n.read ? "bg-indigo-50/30" : ""} cursor-pointer hover:shadow-sm transition-all`}
+                  onClick={() => markOne(n.id)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.read ? "bg-slate-200" : "bg-indigo-500"}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3 mb-1">
+                        <h4 className="text-sm font-semibold text-slate-800 leading-snug">
+                          {n.title}
+                        </h4>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge
+                            label={n.type === "urgent" ? "Urgent" : n.type}
+                            variant={style.badge}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed mb-2">
+                        {n.message}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <Bell size={10} /> {n.department}
+                          </span>
+                          <span>
+                            {new Date(n.date).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
                         {!n.read && (
-                          <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markOne(n.id);
+                            }}
+                            className="ml-auto text-xs text-indigo-500 font-medium border border-indigo-200 px-2 py-0.5 rounded-lg hover:bg-indigo-50 transition-all"
+                          >
+                            Mark read
+                          </button>
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-slate-500 leading-relaxed mb-2">
-                      {n.message}
-                    </p>
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Filter size={10} /> {n.department}
-                      </span>
-                      <span>·</span>
-                      <span>
-                        {new Date(n.date).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                      {!n.read && (
-                        <span className="ml-auto text-indigo-500 font-medium">
-                          Click to mark read
-                        </span>
-                      )}
-                    </div>
                   </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+                </Card>
+              );
+            })
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

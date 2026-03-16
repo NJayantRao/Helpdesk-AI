@@ -14,6 +14,12 @@ import {
 import { changePasswordValidation } from "../middlewares/validator.js";
 import { changePassword } from "../controllers/user.controller.js";
 import { getStudentDocuments } from "../controllers/document.controller.js";
+import {
+  getStudentNotifications,
+  getUnreadCount,
+  markAllAsRead,
+  markOneAsRead,
+} from "../controllers/notification.controller.js";
 
 const router = express.Router();
 
@@ -29,6 +35,15 @@ router.put(
   authMiddleware,
   changePasswordValidation,
   changePassword
+);
+// specific routes BEFORE param routes
+router.get("/notifications/unread-count", authMiddleware, getUnreadCount);
+router.patch("/notifications/mark-all-read", authMiddleware, markAllAsRead);
+router.get("/notifications", authMiddleware, getStudentNotifications);
+router.patch(
+  "/notifications/:notificationId/read",
+  authMiddleware,
+  markOneAsRead
 );
 
 export { router as studentRouter };

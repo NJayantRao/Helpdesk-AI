@@ -148,11 +148,15 @@ export default function LandingPage() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const messageIdRef = useRef(0);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Scroll only inside the chat container, not the full page
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
   }, [messages, typing]);
 
   function sendMessage(text?: string) {
@@ -397,7 +401,10 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-              <div className="h-64 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50">
+              <div
+                ref={chatContainerRef}
+                className="h-64 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50"
+              >
                 {messages.map((m) => (
                   <div
                     key={m.id}
@@ -446,7 +453,6 @@ export default function LandingPage() {
                     </div>
                   </div>
                 )}
-                <div ref={chatEndRef} />
               </div>
               {/* Quick replies */}
               <div className="px-4 py-2 border-t border-slate-100 flex gap-2 overflow-x-auto scrollbar-none">
@@ -480,63 +486,103 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section
-        id="about"
-        className="py-20 px-5 bg-gradient-to-br from-indigo-600 to-indigo-800"
-      >
-        <div className="max-w-3xl mx-auto text-center">
-          <h2
-            className="text-3xl font-bold text-white mb-4"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
-            Ready to get started?
-          </h2>
-          <p className="text-indigo-200 mb-8 text-base">
-            Join thousands of students and faculty already using UniERP for
-            smarter university management.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              href="/login?role=student"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-indigo-700 bg-white rounded-xl hover:bg-indigo-50 transition-all shadow-sm"
-            >
-              <GraduationCap size={16} /> Student Portal
-            </Link>
-            <Link
-              href="/login?role=admin"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white border border-white/30 rounded-xl hover:bg-white/10 transition-all"
-            >
-              <Building size={16} /> Admin Portal
-            </Link>
-          </div>
-        </div>
-      </section>
       {/* Footer */}
-      <footer className="bg-slate-900 px-5 py-10">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <BookOpen size={13} className="text-white" />
+      <footer id="about" className="bg-slate-900 px-5 pt-16 pb-8">
+        <div className="max-w-6xl mx-auto">
+          {/* Top row */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-10 border-b border-slate-800">
+            {/* Brand */}
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                  <BookOpen size={15} className="text-white" />
+                </div>
+                <span className="text-base font-bold text-white">UniERP</span>
+              </div>
+              <p className="text-sm text-slate-400 leading-relaxed max-w-xs">
+                An AI-powered university ERP system with multilingual helpdesk,
+                academic analytics, and secure role-based access — built for
+                modern institutions.
+              </p>
+              <div className="flex gap-3 mt-5">
+                <Link
+                  href="/login?role=student"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all"
+                >
+                  <GraduationCap size={13} /> Student Login
+                </Link>
+                <Link
+                  href="/login?role=admin"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-300 border border-slate-700 rounded-xl hover:bg-slate-800 transition-all"
+                >
+                  <Building size={13} /> Admin Login
+                </Link>
+              </div>
             </div>
-            <span className="text-sm font-bold text-white">UniERP</span>
-            <span className="text-slate-500 text-xs">
-              · AI-Powered University Platform
-            </span>
+            {/* Platform links */}
+            <div>
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+                Platform
+              </h4>
+              <ul className="space-y-2.5">
+                {[
+                  ["Student Portal", "/login?role=student"],
+                  ["Admin Panel", "/login?role=admin"],
+                  ["AI Helpdesk", "#chatbot"],
+                  ["Features", "#features"],
+                ].map(([label, href]) => (
+                  <li key={label}>
+                    <a
+                      href={href}
+                      className="text-sm text-slate-500 hover:text-slate-200 transition-colors"
+                    >
+                      {label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Legal */}
+            <div>
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+                University
+              </h4>
+              <ul className="space-y-2.5">
+                {["About NIST", "Admissions", "Placements", "Contact Us"].map(
+                  (item) => (
+                    <li key={item}>
+                      <a
+                        href="#"
+                        className="text-sm text-slate-500 hover:text-slate-200 transition-colors"
+                      >
+                        {item}
+                      </a>
+                    </li>
+                  )
+                )}
+              </ul>
+            </div>
           </div>
-          <div className="flex gap-6 text-xs text-slate-500">
-            <a href="#" className="hover:text-slate-300 transition-colors">
-              Privacy
-            </a>
-            <a href="#" className="hover:text-slate-300 transition-colors">
-              Terms
-            </a>
-            <a href="#" className="hover:text-slate-300 transition-colors">
-              Contact
-            </a>
-          </div>
-          <div className="text-xs text-slate-600">
-            © 2026 UniERP. All rights reserved.
+
+          {/* Bottom bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6">
+            <p className="text-xs text-slate-600">
+              © 2026 UniERP · NIST Institute of Science & Technology. All rights
+              reserved.
+            </p>
+            <div className="flex gap-5 text-xs text-slate-600">
+              {["Privacy Policy", "Terms of Use", "Accessibility"].map(
+                (item) => (
+                  <a
+                    key={item}
+                    href="#"
+                    className="hover:text-slate-400 transition-colors"
+                  >
+                    {item}
+                  </a>
+                )
+              )}
+            </div>
           </div>
         </div>
       </footer>
