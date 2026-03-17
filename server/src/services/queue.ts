@@ -7,18 +7,13 @@ import {
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-
 import { ENV } from "../lib/env.js";
+import { redisConnection } from "../utils/constants.js";
 
-const myQueue = new Queue("file-upload-queue", {
-  connection: {
-    host: "localhost",
-    port: 6379,
-  },
-});
+const myQueue = new Queue("file-upload-queue", { connection: redisConnection });
 
 const model = new ChatGoogleGenerativeAI({
-  model: "gemini-2.0-flash",
+  model: "gemini-3-flash-preview",
   apiKey: ENV.GEMINI_API_KEY,
 });
 
@@ -59,7 +54,8 @@ export const chatController = async (req: Request, res: Response) => {
     console.log("Incoming request:", req.query);
 
     const client = new QdrantClient({
-      url: "http://localhost:6333",
+      url: ENV.QDRANT_URL,
+      apiKey: ENV.QDRANT_API_KEY,
     });
 
     console.log("Qdrant client connected");

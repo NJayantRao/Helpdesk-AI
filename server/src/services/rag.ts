@@ -1,9 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { QdrantClient } from "@qdrant/js-client-rest";
+import { ENV } from "../lib/env.js";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const genAI = new GoogleGenerativeAI(ENV.GEMINI_API_KEY);
 const qdrant = new QdrantClient({
-  url: process.env.QDRANT_URL || "http://localhost:6333",
+  url: ENV.QDRANT_URL,
+  apiKey: ENV.QDRANT_API_KEY,
 });
 
 const COLLECTION = process.env.QDRANT_COLLECTION || "nist_docs";

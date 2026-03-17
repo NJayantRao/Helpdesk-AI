@@ -9,6 +9,7 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 import { Document } from "@langchain/core/documents";
 
 import { ENV } from "../lib/env.js";
+import { redisConnection } from "../utils/constants.js";
 
 dotenv.config();
 
@@ -60,7 +61,8 @@ const worker = new Worker(
 
       // Qdrant client
       const client = new QdrantClient({
-        url: "http://localhost:6333",
+        url: ENV.QDRANT_URL,
+        apiKey: ENV.QDRANT_API_KEY,
       });
 
       // Create collection if missing
@@ -108,17 +110,19 @@ const worker = new Worker(
   },
   {
     concurrency: 5,
-    connection: {
-      host: "localhost",
-      port: 6379,
-    },
+    connection: redisConnection,
   }
 );
+const startWorkerServer = async () => {
+  console.log(`⚡⚡ Dev worker running successfully...`);
 
-worker.on("completed", (job) => {
-  console.log(`Job ${job.id} completed successfully`);
-});
+  worker.on("completed", (job) => {
+    console.log(`Job ${job.id} completed successfully`);
+  });
 
-worker.on("failed", (job, err) => {
-  console.log(`Job ${job?.id} failed: ${err.message}`);
-});
+  worker.on("failed", (job, err) => {
+    console.log(`Job ${job?.id} failed: ${err.message}`);
+  });
+};
+
+export { startWorkerServer };

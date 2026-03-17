@@ -19,4 +19,13 @@ interface IPayload {
   role: string;
 }
 
-export { baseOptions, refreshTokenOptions, IPayload };
+const redisUrl = new URL(process.env.UPSTASH_REDIS_URL!);
+const redisConnection = {
+  host: redisUrl.hostname,
+  port: Number(redisUrl.port),
+  username: redisUrl.username,
+  password: redisUrl.password,
+  tls: {},
+};
+
+export { baseOptions, refreshTokenOptions, IPayload, redisConnection };

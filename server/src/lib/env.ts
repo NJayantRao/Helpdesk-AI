@@ -15,6 +15,9 @@ const ENV = {
   FRONTEND_LOCAL_URL: process.env.FRONTEND_LOCAL_URL!,
   FRONTEND_PROD_URL: process.env.FRONTEND_PROD_URL!,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY!,
+  QDRANT_API_KEY: process.env.QDRANT_API_KEY!,
+  QDRANT_URL: process.env.QDRANT_URL!,
+  QDRANT_COLLECTION: process.env.QDRANT_COLLECTION!,
 };
 
 export { ENV };
