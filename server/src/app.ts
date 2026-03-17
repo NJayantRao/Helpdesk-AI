@@ -12,6 +12,7 @@ import { resultRouter } from "./routes/result.routes.js";
 import { companyRouter } from "./routes/company.routes.js";
 import { attendanceRouter } from "./routes/attendance.routes.js";
 import { documentRouter } from "./routes/document.routes.js";
+import { chatbotRouter } from "./routes/chatbot.routes.js";
 
 const app = express();
 
@@ -61,5 +62,6 @@ app.use("/api/v1/result", resultRouter);
 app.use("/api/v1/company", companyRouter);
 app.use("/api/v1/attendance", attendanceRouter);
 app.use("/api/v1/document", documentRouter);
+app.use("/api/v1/chat", chatbotRouter);
 
 export default app;
