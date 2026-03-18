@@ -67,8 +67,7 @@ function extractLastJSON(raw: string): Record<string, unknown> {
   }
 
   const last = objects[objects.length - 1];
-  const parsed = JSON.parse(last);
-
+  const parsed = JSON.parse(last || "{}");
   if (objects.length > 1) {
     console.warn(
       `[Agent] Model emitted ${objects.length} JSON objects in one turn. ` +

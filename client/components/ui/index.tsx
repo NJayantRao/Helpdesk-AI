@@ -250,6 +250,8 @@ export function Avatar({ name, size = "md", avatarUrl }: AvatarProps) {
     lg: "w-12 h-12 text-base",
   };
   if (avatarUrl) {
+    // console.log(avatarUrl);
+
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img

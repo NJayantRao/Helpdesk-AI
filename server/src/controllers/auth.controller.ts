@@ -246,7 +246,6 @@ export const loginUser = AsyncHandler(async (req: any, res: any) => {
   await redisClient.set(`refresh-token:${user.id}`, refreshToken, {
     EX: 7 * 24 * 60 * 60,
   });
-  console.log("user logged in:", email);
 
   return res.status(200).json(
     new ApiResponse(200, "User logged in successfully...", {

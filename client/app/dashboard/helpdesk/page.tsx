@@ -152,7 +152,7 @@ export default function HelpdeskPage() {
   }
 
   return (
-    <DashboardLayout user={mockUser}>
+    <DashboardLayout>
       <div className="flex gap-5 h-[calc(100vh-120px)] animate-fade-in">
         {/* Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">

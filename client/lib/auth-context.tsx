@@ -5,25 +5,16 @@ import React, {
   useContext,
   useState,
   useEffect,
-  useCallback,
   ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
-import type { AuthUser, UserRole } from "@/types";
-import {
-  loginAPI,
-  logoutAPI,
-  getStudentProfile,
-  getAdminProfile,
-  decodeJWT,
-} from "./api";
+import axios from "axios";
+import type { AuthUser } from "@/types";
+import { API_BASE_URL } from "@/lib/constants";
 
 interface AuthContextValue {
   user: AuthUser | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<"student" | "admin">;
-  logout: () => Promise<void>;
   setUser: React.Dispatch<React.SetStateAction<AuthUser | null>>;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -31,120 +22,80 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
-  const hydrateUser = useCallback(async (role: UserRole) => {
-    try {
-      if (role === "STUDENT") {
-        const profile = await getStudentProfile();
-        const hydrated: AuthUser = {
-          id: profile.student.id,
-          fullName: profile.fullName,
-          email: profile.email,
-          role: "STUDENT",
-          avatarUrl: profile.avatarUrl,
-          rollNumber: profile.student.rollNumber,
-          semester: profile.student.semester,
-          branch: profile.student.branch,
-          department: profile.department.name,
-          cgpa: profile.student.cgpa,
-          admissionYear: profile.student.admissionYear,
-        };
-        setUser(hydrated);
-      } else if (role === "ADMIN" || role === "SYSTEM") {
-        const profile = await getAdminProfile();
-        const hydrated: AuthUser = {
-          id: "", // admin profile doesn't return id in current API shape
-          fullName: profile.fullName,
-          email: profile.email,
-          role: role,
-          avatarUrl: profile.avatarUrl,
-          department: profile.admin?.branch,
-          designation: profile.admin?.designation,
-        };
-        setUser(hydrated);
-      }
-    } catch {
-      setUser(null);
-    }
-  }, []);
-
-  // On mount: check session by attempting to load profile
   useEffect(() => {
-    const bootstrapAuth = async () => {
-      setLoading(true);
+    const bootstrap = async () => {
       try {
-        // Try student profile first, fall back to admin
-        try {
-          const profile = await getStudentProfile();
-          const hydrated: AuthUser = {
-            id: profile.student.id,
-            fullName: profile.fullName,
-            email: profile.email,
-            role: "STUDENT",
-            avatarUrl: profile.avatarUrl,
-            rollNumber: profile.student.rollNumber,
-            semester: profile.student.semester,
-            branch: profile.student.branch,
-            department: profile.department.name,
-            cgpa: profile.student.cgpa,
-            admissionYear: profile.student.admissionYear,
-          };
-          setUser(hydrated);
-        } catch {
-          // Not a student, try admin
-          const profile = await getAdminProfile();
-          const hydrated: AuthUser = {
-            id: "",
-            fullName: profile.fullName,
-            email: profile.email,
-            role: "ADMIN",
-            avatarUrl: profile.avatarUrl,
-            department: profile.admin?.branch,
-            designation: profile.admin?.designation,
-          };
-          setUser(hydrated);
-        }
+        // Try student profile first
+        const res = await axios.get(`${API_BASE_URL}/student/profile`, {
+          withCredentials: true,
+        });
+        const d = res.data?.data ?? res.data;
+        setUser({
+          id: d.student?.id ?? d.id ?? "",
+          fullName: d.fullName ?? "",
+          email: d.email ?? "",
+          role: "STUDENT",
+          avatarUrl: d.avatarUrl ?? null,
+          rollNumber: d.student?.rollNumber,
+          semester: d.student?.semester,
+          branch: d.student?.branch,
+          department: d.department?.name ?? d.department ?? "",
+          cgpa: d.student?.cgpa,
+          admissionYear: d.student?.admissionYear,
+        });
       } catch {
-        // No valid session
-        setUser(null);
+        // Not a student — try admin/system profile
+        try {
+          const res = await axios.get(`${API_BASE_URL}/admin/profile`, {
+            withCredentials: true,
+          });
+          const d = res.data?.data ?? res.data;
+
+          // Decode role from accessToken cookie (set by server on login)
+          let role: "ADMIN" | "SYSTEM" = "ADMIN";
+          try {
+            const cookies = document.cookie.split(";");
+            const tokenCookie = cookies.find((c) =>
+              c.trim().startsWith("accessToken=")
+            );
+            if (tokenCookie) {
+              const token = tokenCookie.split("=")[1]?.trim();
+              if (token) {
+                const payload = JSON.parse(atob(token.split(".")[1]));
+                const rawRole = (payload?.role ?? "ADMIN")
+                  .toString()
+                  .toUpperCase();
+                role = rawRole === "SYSTEM" ? "SYSTEM" : "ADMIN";
+              }
+            }
+          } catch {
+            role = "ADMIN";
+          }
+
+          setUser({
+            id: d.id ?? "",
+            fullName: d.fullName ?? "",
+            email: d.email ?? "",
+            role,
+            avatarUrl: d.avatarUrl ?? null,
+            department:
+              d.admin?.branch ?? d.department?.name ?? d.department ?? "",
+            designation: d.admin?.designation ?? "",
+          });
+        } catch {
+          setUser(null);
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    bootstrapAuth();
+    bootstrap();
   }, []);
 
-  const login = useCallback(
-    async (email: string, password: string): Promise<"student" | "admin"> => {
-      const result = await loginAPI(email, password);
-      const decoded = decodeJWT(result.accessToken);
-      const role = (decoded.role || "STUDENT").toUpperCase() as UserRole;
-
-      await hydrateUser(role);
-
-      if (role === "ADMIN" || role === "SYSTEM") {
-        return "admin";
-      }
-      return "student";
-    },
-    [hydrateUser]
-  );
-
-  const logout = useCallback(async () => {
-    try {
-      await logoutAPI();
-    } catch {
-      // Ignore errors on logout
-    } finally {
-      setUser(null);
-      router.push("/login");
-    }
-  }, [router]);
-
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, setUser }}>
+    <AuthContext.Provider value={{ user, setUser, loading }}>
       {children}
     </AuthContext.Provider>
   );

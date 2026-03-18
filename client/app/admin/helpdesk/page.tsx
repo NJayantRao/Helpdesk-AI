@@ -140,7 +140,7 @@ export default function AdminHelpdeskPage() {
   }
 
   return (
-    <DashboardLayout user={mockAdminUser}>
+    <DashboardLayout>
       <div className="space-y-5 animate-fade-in">
         <div>
           <h2

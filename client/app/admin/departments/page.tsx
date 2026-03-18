@@ -15,7 +15,7 @@ const DEPT_COLORS = [
 
 export default function AdminDepartmentsPage() {
   return (
-    <DashboardLayout user={mockAdminUser}>
+    <DashboardLayout>
       <div className="space-y-5 animate-fade-in">
         {/* Header */}
         <div>

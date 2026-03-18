@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useRef } from "react";
+import axios from "axios";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, Button } from "@/components/ui";
-import { mockAdminUser } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/constants";
 import {
   Upload,
   FileText,
@@ -13,23 +14,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface UploadResult {
-  totalRows: number;
-  inserted: number;
-  skipped: number;
-  failed: number;
-  errors: { row: number; reason: string }[];
+function formatBytes(b: number) {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
 }
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function downloadTemplate() {
-  const csv = "studentId,subjectCode,semester,marks\n";
-  const blob = new Blob([csv], { type: "text/csv" });
+  const blob = new Blob(["studentId,subjectCode,semester,marks\n"], {
+    type: "text/csv",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -41,32 +34,45 @@ function downloadTemplate() {
 export default function AdminResultsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [uploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<any>(null);
   const [errorsOpen, setErrorsOpen] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const f = files[0];
-    if (!f.name.match(/\.(csv|xlsx)$/i)) {
-      alert("Only .csv and .xlsx files are supported.");
+    if (!files[0].name.match(/\.(csv|xlsx)$/i)) {
+      alert("Only .csv and .xlsx");
       return;
     }
-    setFile(f);
+    setFile(files[0]);
     setUploadResult(null);
+    setUploadError("");
   }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(false);
-    handleFiles(e.dataTransfer.files);
+  async function handleUpload() {
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const formData = new FormData();
+      formData.append("results-file", file);
+      const res = await axios.post(`${API_BASE_URL}/result/upload`, formData, {
+        withCredentials: true,
+      });
+      setUploadResult(res.data?.data ?? res.data);
+      setFile(null);
+    } catch (err: any) {
+      setUploadError(err.response?.data?.message || "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
-    <DashboardLayout user={mockAdminUser}>
+    <DashboardLayout>
       <div className="max-w-2xl mx-auto space-y-5 animate-fade-in">
-        {/* Header */}
         <div>
           <h2
             className="text-xl font-bold text-slate-900"
@@ -78,8 +84,6 @@ export default function AdminResultsPage() {
             Upload a CSV or Excel file to bulk import student results
           </p>
         </div>
-
-        {/* Template Download */}
         <Card className="p-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -91,7 +95,7 @@ export default function AdminResultsPage() {
                   Download CSV Template
                 </div>
                 <div className="text-xs text-slate-400">
-                  Required columns: studentId, subjectCode, semester, marks
+                  Required: studentId, subjectCode, semester, marks
                 </div>
               </div>
             </div>
@@ -100,8 +104,6 @@ export default function AdminResultsPage() {
             </Button>
           </div>
         </Card>
-
-        {/* Upload Zone */}
         <Card className="p-8">
           <input
             ref={inputRef}
@@ -110,9 +112,7 @@ export default function AdminResultsPage() {
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
           />
-
           {file ? (
-            /* File Selected */
             <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
               <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
                 <FileText size={18} className="text-indigo-600" />
@@ -133,7 +133,6 @@ export default function AdminResultsPage() {
               </button>
             </div>
           ) : (
-            /* Drop Zone */
             <div
               className={cn(
                 "border-2 border-dashed rounded-2xl py-12 flex flex-col items-center justify-center cursor-pointer text-center transition-all",
@@ -146,7 +145,11 @@ export default function AdminResultsPage() {
                 setDragging(true);
               }}
               onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                handleFiles(e.dataTransfer.files);
+              }}
               onClick={() => inputRef.current?.click()}
             >
               <Upload size={32} className="text-slate-300 mb-4" />
@@ -169,8 +172,11 @@ export default function AdminResultsPage() {
               </p>
             </div>
           )}
-
-          {/* Upload Button */}
+          {uploadError && (
+            <div className="mt-4 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+              {uploadError}
+            </div>
+          )}
           <div className="mt-6">
             <Button
               variant="primary"
@@ -178,50 +184,21 @@ export default function AdminResultsPage() {
               className="w-full justify-center"
               disabled={!file || uploading}
               loading={uploading}
-              onClick={() => {
-                // TODO: call POST /api/v1/result/upload
-              }}
+              onClick={handleUpload}
             >
               <Upload size={16} />
-              {uploading ? "Uploading..." : "Upload Results"}
+              {uploading ? "Uploading…" : "Upload Results"}
             </Button>
           </div>
         </Card>
-
-        {/* Simulate button for testing */}
-        <div className="flex justify-end">
-          <button
-            onClick={() =>
-              setUploadResult({
-                totalRows: 30,
-                inserted: 27,
-                skipped: 1,
-                failed: 2,
-                errors: [
-                  { row: 5, reason: "Subject 'CS999' not found" },
-                  {
-                    row: 12,
-                    reason: "Student not enrolled in 'CS301'",
-                  },
-                ],
-              })
-            }
-            className="text-xs text-slate-400 hover:text-slate-600 underline"
-          >
-            Simulate Upload Response
-          </button>
-        </div>
-
-        {/* Upload Summary */}
         {uploadResult && (
-          <Card className="p-5 animate-slide-up">
+          <Card className="p-5">
             <div className="flex items-center gap-2 mb-5">
               <CheckCircle size={18} className="text-emerald-600" />
               <h3 className="text-sm font-semibold text-slate-900">
                 Upload Summary
               </h3>
             </div>
-
             <div className="grid grid-cols-4 gap-3 mb-4">
               {[
                 {
@@ -260,8 +237,7 @@ export default function AdminResultsPage() {
                 </div>
               ))}
             </div>
-
-            {uploadResult.errors.length > 0 && (
+            {uploadResult.errors?.length > 0 && (
               <div>
                 <button
                   onClick={() => setErrorsOpen(!errorsOpen)}
@@ -289,7 +265,7 @@ export default function AdminResultsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {uploadResult.errors.map((err, i) => (
+                        {uploadResult.errors.map((err: any, i: number) => (
                           <tr
                             key={i}
                             className={i % 2 === 0 ? "bg-red-50/50" : ""}

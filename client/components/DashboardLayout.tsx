@@ -1,12 +1,13 @@
 "use client";
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import axios from "axios";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui";
-import type { User } from "@/types/index";
-import { mockNotifications } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 import FloatingHelpdesk from "@/components/FloatingHelpdesk";
+import { API_BASE_URL } from "@/lib/constants";
 import {
   LayoutDashboard,
   GraduationCap,
@@ -25,6 +26,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 
+// ── Nav config ─────────────────────────────────────────────────────────────
+
 const studentNav = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/results", icon: GraduationCap, label: "Results & CGPA" },
@@ -40,22 +43,25 @@ const adminNav = [
   { href: "/admin/departments", icon: Building2, label: "Departments" },
 ];
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-  user: User;
+// ── Sidebar — declared OUTSIDE DashboardLayout to avoid "created during render" error ──
+
+interface SidebarProps {
+  user: ReturnType<typeof useAuth>["user"];
+  isAdmin: boolean;
+  nav: typeof studentNav;
+  pathname: string;
+  onNavClick: () => void;
+  onLogout: () => void;
 }
 
-function SidebarContent({
-  nav,
+function Sidebar({
   user,
+  isAdmin,
+  nav,
   pathname,
-  setSidebarOpen,
-}: {
-  nav: typeof studentNav;
-  user: User;
-  pathname: string;
-  setSidebarOpen: (open: boolean) => void;
-}) {
+  onNavClick,
+  onLogout,
+}: SidebarProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
@@ -65,9 +71,7 @@ function SidebarContent({
             <BookOpen size={16} className="text-white" />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-900 font-display">
-              UniERP
-            </div>
+            <div className="text-sm font-bold text-slate-900">UniERP</div>
             <div className="text-[10px] text-slate-400 font-medium">
               Intelligent Platform
             </div>
@@ -75,36 +79,41 @@ function SidebarContent({
         </div>
       </div>
 
-      {/* User Info */}
+      {/* User card */}
       <div className="px-4 py-4 border-b border-slate-100">
         <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-          <Avatar name={user.name} />
+          <Avatar
+            name={user?.fullName || "U"}
+            avatarUrl={user?.avatarUrl ?? undefined}
+          />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-slate-800 truncate">
-              {user.name}
+              {user?.fullName || "—"}
             </div>
             <div className="text-xs text-slate-400 truncate">
-              {user.role === "student"
-                ? `Roll: ${user.rollNumber}`
-                : user.department}
+              {user?.role === "STUDENT"
+                ? `Roll: ${user.rollNumber ?? "—"}`
+                : user?.role === "SYSTEM"
+                  ? (user.email ?? "—")
+                  : (user?.designation ?? user?.department ?? "—")}
             </div>
           </div>
           <span
             className={cn(
               "text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase",
-              user.role === "admin"
-                ? "bg-amber-100 text-amber-700"
-                : user.role === "system"
-                  ? "bg-purple-100 text-purple-700"
+              user?.role === "SYSTEM"
+                ? "bg-purple-100 text-purple-700"
+                : isAdmin
+                  ? "bg-amber-100 text-amber-700"
                   : "bg-indigo-100 text-indigo-700"
             )}
           >
-            {user.role}
+            {user?.role === "SYSTEM" ? "system" : isAdmin ? "admin" : "student"}
           </span>
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         <div className="space-y-0.5">
           {nav.map((item) => {
@@ -117,9 +126,9 @@ function SidebarContent({
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setSidebarOpen(false)}
+                onClick={onNavClick}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                   active
                     ? "bg-indigo-600 text-white shadow-sm"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -139,10 +148,8 @@ function SidebarContent({
       {/* Bottom */}
       <div className="px-3 py-4 border-t border-slate-100 space-y-0.5">
         <Link
-          href={
-            user.role === "student" ? "/dashboard/settings" : "/admin/settings"
-          }
-          onClick={() => setSidebarOpen(false)}
+          href={isAdmin ? "/admin/settings" : "/dashboard/settings"}
+          onClick={onNavClick}
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full",
             pathname.includes("/settings")
@@ -152,28 +159,32 @@ function SidebarContent({
         >
           <Settings size={17} /> Settings
         </Link>
-        <Link
-          href="/login"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all"
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all"
         >
           <LogOut size={17} /> Sign Out
-        </Link>
+        </button>
       </div>
     </div>
   );
 }
 
+// ── Layout ─────────────────────────────────────────────────────────────────
+
 export default function DashboardLayout({
   children,
-  user,
-}: DashboardLayoutProps) {
+}: {
+  children: React.ReactNode;
+}) {
+  const { user, setUser } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const nav =
-    user.role === "admin" || user.role === "system" ? adminNav : studentNav;
 
-  // Fixed topbar title — works for nested routes too
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SYSTEM";
+  const nav = isAdmin ? adminNav : studentNav;
   const currentNav = nav.find(
     (n) =>
       pathname === n.href ||
@@ -182,123 +193,136 @@ export default function DashboardLayout({
         pathname.startsWith(n.href))
   );
 
-  // Bell dot only when there are unread notifications
-  const hasUnread = mockNotifications.some((n) => !n.read);
+  async function handleLogout() {
+    try {
+      await axios.post(
+        `${API_BASE_URL}/auth/logout`,
+        {},
+        { withCredentials: true }
+      );
+    } catch {
+      /* ignore */
+    }
+    setUser(null);
+    router.push("/login");
+  }
+
+  const sidebarProps: SidebarProps = {
+    user,
+    isAdmin,
+    nav,
+    pathname,
+    onNavClick: () => setSidebarOpen(false),
+    onLogout: handleLogout,
+  };
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 shrink-0">
-        <SidebarContent
-          nav={nav}
-          user={user}
-          pathname={pathname}
-          setSidebarOpen={setSidebarOpen}
-        />
-      </aside>
+    <>
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
+        {/* Desktop sidebar */}
+        <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 shrink-0">
+          <Sidebar {...sidebarProps} />
+        </aside>
 
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div
-            className="fixed inset-0 bg-black/40"
-            onClick={() => setSidebarOpen(false)}
-          />
-          <aside className="relative flex flex-col w-72 bg-white shadow-2xl">
-            <button
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-slate-100"
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div className="lg:hidden fixed inset-0 z-50 flex">
+            <div
+              className="fixed inset-0 bg-black/40"
               onClick={() => setSidebarOpen(false)}
-            >
-              <X size={18} className="text-slate-600" />
-            </button>
-            <SidebarContent
-              nav={nav}
-              user={user}
-              pathname={pathname}
-              setSidebarOpen={setSidebarOpen}
             />
-          </aside>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
-        <header className="bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <button
-              className="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-600"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <Menu size={20} />
-            </button>
-            <div>
-              <h1 className="text-sm font-semibold text-slate-900 capitalize">
-                {currentNav?.label || "Dashboard"}
-              </h1>
-              <p className="text-xs text-slate-400">
-                {user.department}{" "}
-                {user.semester ? `· Semester ${user.semester}` : ""}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href={
-                user.role === "student" ? "/dashboard/notifications" : "/admin"
-              }
-              className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-500"
-            >
-              <Bell size={18} />
-              {hasUnread && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-              )}
-            </Link>
-            <div className="relative">
+            <aside className="relative flex flex-col w-72 bg-white shadow-2xl">
               <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-all"
+                className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-slate-100"
+                onClick={() => setSidebarOpen(false)}
               >
-                <Avatar name={user.name} size="sm" />
-                <ChevronDown size={14} className="text-slate-400" />
+                <X size={18} className="text-slate-600" />
               </button>
-              {userMenuOpen && (
-                <div className="absolute right-0 top-12 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50 animate-slide-up">
-                  <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                    <div className="text-sm font-medium text-slate-800">
-                      {user.name}
-                    </div>
-                    <div className="text-xs text-slate-400">{user.email}</div>
-                  </div>
-                  <Link
-                    href={
-                      user.role === "student"
-                        ? "/dashboard/settings"
-                        : "/admin/settings"
-                    }
-                    onClick={() => setUserMenuOpen(false)}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-                  >
-                    <Settings size={14} /> Settings
-                  </Link>
-                  <Link
-                    href="/login"
-                    className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
-                  >
-                    <LogOut size={14} /> Sign out
-                  </Link>
-                </div>
-              )}
-            </div>
+              <Sidebar {...sidebarProps} />
+            </aside>
           </div>
-        </header>
+        )}
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-5">{children}</main>
+        {/* Main */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <header className="bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <button
+                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-600"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu size={20} />
+              </button>
+              <div>
+                <h1 className="text-sm font-semibold text-slate-900">
+                  {currentNav?.label || "Dashboard"}
+                </h1>
+                <p className="text-xs text-slate-400">
+                  {user?.department}
+                  {user?.semester ? ` · Semester ${user.semester}` : ""}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link
+                href={isAdmin ? "/admin" : "/dashboard/notifications"}
+                className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-500"
+              >
+                <Bell size={18} />
+              </Link>
+
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-all"
+                >
+                  <Avatar
+                    name={user?.fullName || "U"}
+                    size="sm"
+                    avatarUrl={user?.avatarUrl ?? undefined}
+                  />
+                  <ChevronDown size={14} className="text-slate-400" />
+                </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-12 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50">
+                    <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                      <div className="text-sm font-medium text-slate-800">
+                        {user?.fullName}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {user?.email}
+                      </div>
+                    </div>
+                    <Link
+                      href={isAdmin ? "/admin/settings" : "/dashboard/settings"}
+                      onClick={() => setUserMenuOpen(false)}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <Settings size={14} /> Settings
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <LogOut size={14} /> Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-y-auto p-5">{children}</main>
+        </div>
       </div>
 
-      {/* Floating helpdesk — students only */}
-      {user.role === "student" && <FloatingHelpdesk />}
-    </div>
+      {/* FloatingHelpdesk outside overflow-hidden so portal works correctly */}
+      <FloatingHelpdesk />
+    </>
   );
 }
