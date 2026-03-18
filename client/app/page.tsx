@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import axios from "axios";
 import { cn } from "@/lib/utils";
 import {
   BookOpen,
@@ -18,6 +19,7 @@ import {
   X,
   Building,
 } from "lucide-react";
+import { API_BASE_URL } from "@/lib/constants";
 
 interface Message {
   id: string;
@@ -25,61 +27,76 @@ interface Message {
   content: string;
 }
 
-const FAQ_RESPONSES: Record<string, string> = {
-  admission:
-    "Admissions for 2026-27 are open! Apply online at nist.edu/admissions before April 30. We offer B.Tech in CS, ECE, ME, CE, and Chemical Engineering. Required documents: 10+2 marksheet, ID proof, passport photos.",
-  cgpa: "CGPA calculation follows a credit-weighted system. Each subject has assigned credits, and your SGPA per semester feeds into the cumulative CGPA. Login to your dashboard for your live CGPA and trend analysis.",
-  hostel:
-    "NIST provides separate hostels for boys and girls with 24/7 security, Wi-Fi, mess facilities, and sports amenities. Apply during admission or before each academic year. Contact hostel@nist.edu for details.",
-  exam: "Semester examinations are conducted at the end of each semester. Mid-semester exams happen in Week 7-8. Hall tickets are issued 2 weeks prior. Results are declared within 30 days of the last exam.",
-  fee: "Tuition fee for B.Tech programs ranges from ₹85,000 – ₹1,20,000 per year based on program. Scholarships available for merit students (top 10% CGPA). Contact accounts@nist.edu for payment queries.",
-  placement:
-    "NIST has a dedicated Placement Cell with 150+ companies visiting annually. Average package: ₹6.2 LPA. Top recruiters include TCS, Infosys, Wipro, Cognizant, and more. Eligibility: CGPA ≥ 6.5.",
-};
+// const FAQ_RESPONSES: Record<string, string> = {
+//   admission:
+//     "Admissions for 2026-27 are open! Apply online at nist.edu/admissions before April 30. We offer B.Tech in CS, ECE, ME, CE, and Chemical Engineering. Required documents: 10+2 marksheet, ID proof, passport photos.",
+//   cgpa: "CGPA calculation follows a credit-weighted system. Each subject has assigned credits, and your SGPA per semester feeds into the cumulative CGPA. Login to your dashboard for your live CGPA and trend analysis.",
+//   hostel:
+//     "NIST provides separate hostels for boys and girls with 24/7 security, Wi-Fi, mess facilities, and sports amenities. Apply during admission or before each academic year. Contact hostel@nist.edu for details.",
+//   exam: "Semester examinations are conducted at the end of each semester. Mid-semester exams happen in Week 7-8. Hall tickets are issued 2 weeks prior. Results are declared within 30 days of the last exam.",
+//   fee: "Tuition fee for B.Tech programs ranges from ₹85,000 – ₹1,20,000 per year based on program. Scholarships available for merit students (top 10% CGPA). Contact accounts@nist.edu for payment queries.",
+//   placement:
+//     "NIST has a dedicated Placement Cell with 150+ companies visiting annually. Average package: ₹6.2 LPA. Top recruiters include TCS, Infosys, Wipro, Cognizant, and more. Eligibility: CGPA ≥ 6.5.",
+// };
 
-function getBotResponse(msg: string): string {
-  const lower = msg.toLowerCase();
-  if (
-    lower.includes("admiss") ||
-    lower.includes("apply") ||
-    lower.includes("join")
-  )
-    return FAQ_RESPONSES.admission;
-  if (
-    lower.includes("cgpa") ||
-    lower.includes("grade") ||
-    lower.includes("marks") ||
-    lower.includes("result")
-  )
-    return FAQ_RESPONSES.cgpa;
-  if (
-    lower.includes("hostel") ||
-    lower.includes("accommodation") ||
-    lower.includes("room")
-  )
-    return FAQ_RESPONSES.hostel;
-  if (
-    lower.includes("exam") ||
-    lower.includes("test") ||
-    lower.includes("hall ticket")
-  )
-    return FAQ_RESPONSES.exam;
-  if (
-    lower.includes("fee") ||
-    lower.includes("payment") ||
-    lower.includes("scholarship") ||
-    lower.includes("cost")
-  )
-    return FAQ_RESPONSES.fee;
-  if (
-    lower.includes("placement") ||
-    lower.includes("job") ||
-    lower.includes("campus") ||
-    lower.includes("recruit")
-  )
-    return FAQ_RESPONSES.placement;
-  return "Thanks for your question! I can help with admissions, fees, exams, hostel, placements, and CGPA queries. Could you provide more details or try rephrasing? For urgent queries, contact info@nist.edu.";
-}
+// function getBotResponse(msg: string): string {
+//   const lower = msg.toLowerCase();
+//   if (
+//     lower.includes("admiss") ||
+//     lower.includes("apply") ||
+//     lower.includes("join")
+//   )
+//     return FAQ_RESPONSES.admission;
+//   if (
+//     lower.includes("cgpa") ||
+//     lower.includes("grade") ||
+//     lower.includes("marks") ||
+//     lower.includes("result")
+//   )
+//     return FAQ_RESPONSES.cgpa;
+//   if (
+//     lower.includes("hostel") ||
+//     lower.includes("accommodation") ||
+//     lower.includes("room")
+//   )
+//     return FAQ_RESPONSES.hostel;
+//   if (
+//     lower.includes("exam") ||
+//     lower.includes("test") ||
+//     lower.includes("hall ticket")
+//   )
+//     return FAQ_RESPONSES.exam;
+//   if (
+//     lower.includes("fee") ||
+//     lower.includes("payment") ||
+//     lower.includes("scholarship") ||
+//     lower.includes("cost")
+//   )
+//     return FAQ_RESPONSES.fee;
+//   if (
+//     lower.includes("placement") ||
+//     lower.includes("job") ||
+//     lower.includes("campus") ||
+//     lower.includes("recruit")
+//   )
+//     return FAQ_RESPONSES.placement;
+//   return "Thanks for your question! I can help with admissions, fees, exams, hostel, placements, and CGPA queries. Could you provide more details or try rephrasing? For urgent queries, contact info@nist.edu.";
+// }
+
+const getBotResponse = async (msg: string) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/chat`,
+      { message: msg },
+      { withCredentials: true }
+    );
+    const botReply = response?.data?.data?.output;
+    return botReply;
+  } catch (error) {
+    console.log(error);
+    return "Something went wrong";
+  }
+};
 
 const FEATURES = [
   {
@@ -159,28 +176,45 @@ export default function LandingPage() {
     }
   }, [messages, typing]);
 
-  function sendMessage(text?: string) {
+  async function sendMessage(text?: string) {
     const msg = (text || input).trim();
     if (!msg) return;
+
     const userMsg: Message = {
       id: (++messageIdRef.current).toString(),
       role: "user",
       content: msg,
     };
+
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setTyping(true);
-    setTimeout(() => {
+
+    try {
+      const botReply = await getBotResponse(msg);
+
       setTyping(false);
+
       setMessages((prev) => [
         ...prev,
         {
           id: (++messageIdRef.current).toString(),
           role: "bot",
-          content: getBotResponse(msg),
+          content: botReply || "No response received",
         },
       ]);
-    }, 1200);
+    } catch (error) {
+      setTyping(false);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (++messageIdRef.current).toString(),
+          role: "bot",
+          content: "Something went wrong.",
+        },
+      ]);
+    }
   }
 
   return (

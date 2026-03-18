@@ -12,8 +12,6 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { API_BASE_URL } from "@/lib/constants";
-import axios from "axios";
 
 // ── Language config ────────────────────────────────────────────────────────
 
@@ -120,7 +118,7 @@ export default function FloatingHelpdesk() {
 
   // ── Send ──────────────────────────────────────────────────────────────────
 
-  const sendMessage = useCallback(async () => {
+  const sendMessage = useCallback(() => {
     const text = input.trim();
     if (!text) return;
 
@@ -130,49 +128,27 @@ export default function FloatingHelpdesk() {
       content: text,
       timestamp: new Date(),
     };
-
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
-
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-
     setIsTyping(true);
 
-    try {
-      const response = await axios.post(
-        `${API_BASE_URL}/chat`,
-        { message: text },
-        { withCredentials: true }
-      );
-
-      const botReply = response?.data?.data?.output || "No response received";
-
+    setTimeout(() => {
       setIsTyping(false);
-
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: botReply,
+          content:
+            "I'm currently in demo mode. Full AI integration with your university data is coming soon! 🎓",
           timestamp: new Date(),
         },
       ]);
-    } catch (error) {
-      setIsTyping(false);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: "Something went wrong.",
-          timestamp: new Date(),
-        },
-      ]);
-    }
+      // TODO: Replace with real AI API call
+    }, 1500);
   }, [input]);
 
   // ── Voice ─────────────────────────────────────────────────────────────────
