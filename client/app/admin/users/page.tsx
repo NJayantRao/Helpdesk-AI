@@ -24,7 +24,7 @@ export default function AdminUsersPage() {
   const admins = mockUsers.filter((u) => u.role === "admin");
 
   return (
-    <DashboardLayout user={mockAdminUser}>
+    <DashboardLayout>
       <div className="space-y-5 animate-fade-in">
         {/* Header */}
         <div>

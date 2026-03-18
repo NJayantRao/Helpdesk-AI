@@ -1,9 +1,11 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useAuth } from "@/lib/auth-context";
 import { Card, Avatar, Badge, Button } from "@/components/ui";
-import { mockUser } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/constants";
 import {
   User,
   Lock,
@@ -17,8 +19,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ── Constants ──────────────────────────────────────────────────────────────
-
 const LANGUAGES = [
   { code: "en", label: "English", flag: "🇬🇧", bcp47: "en-IN" },
   { code: "hi", label: "Hindi", flag: "🇮🇳", bcp47: "hi-IN" },
@@ -27,7 +27,6 @@ const LANGUAGES = [
   { code: "te", label: "Telugu", flag: "🔵", bcp47: "te-IN" },
   { code: "ta", label: "Tamil", flag: "🟡", bcp47: "ta-IN" },
 ];
-
 const THEMES = [
   { name: "Indigo", value: "indigo", hex: "#4f46e5" },
   { name: "Violet", value: "violet", hex: "#7c3aed" },
@@ -36,9 +35,6 @@ const THEMES = [
   { name: "Amber", value: "amber", hex: "#d97706" },
   { name: "Sky", value: "sky", hex: "#0284c7" },
 ];
-
-// ── Strength helper ────────────────────────────────────────────────────────
-
 function getStrength(pw: string) {
   if (!pw) return null;
   if (pw.length < 6) return "Weak";
@@ -46,23 +42,19 @@ function getStrength(pw: string) {
   if (/[A-Z]/.test(pw) && /[0-9]/.test(pw)) return "Strong";
   return "Good";
 }
-
-const STRENGTH_COLOR: Record<string, string> = {
+const SC: Record<string, string> = {
   Weak: "bg-red-400",
   Fair: "bg-amber-400",
   Good: "bg-blue-400",
   Strong: "bg-emerald-500",
 };
-const STRENGTH_TEXT: Record<string, string> = {
+const ST: Record<string, string> = {
   Weak: "text-red-500",
   Fair: "text-amber-500",
   Good: "text-blue-500",
   Strong: "text-emerald-600",
 };
-const STRENGTH_ORDER = ["Weak", "Fair", "Good", "Strong"];
-
-// ── Toggle component ───────────────────────────────────────────────────────
-
+const SO = ["Weak", "Fair", "Good", "Strong"];
 function Toggle({ value, onChange }: { value: boolean; onChange: () => void }) {
   return (
     <button
@@ -81,28 +73,32 @@ function Toggle({ value, onChange }: { value: boolean; onChange: () => void }) {
     </button>
   );
 }
-
-// ── Info field (read-only) ─────────────────────────────────────────────────
-
-function InfoField({ label, value }: { label: string; value?: string }) {
+function InfoField({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | number;
+}) {
   return (
     <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
       <p className="text-xs text-slate-500 font-medium mb-1">{label}</p>
-      <p className="text-sm font-semibold text-slate-800">{value || "—"}</p>
+      <p className="text-sm font-semibold text-slate-800">{value ?? "—"}</p>
     </div>
   );
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────
-
 export default function StudentSettingsPage() {
+  const { user, setUser } = useAuth();
   const router = useRouter();
-
-  // Language
   const [selectedLang, setSelectedLang] = useState("en");
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-
-  // Password
+  const [theme, setTheme] = useState("indigo");
+  const [notifPrefs, setNotifPrefs] = useState({
+    academic: true,
+    placement: true,
+    general: true,
+  });
   const [pwForm, setPwForm] = useState({
     oldPassword: "",
     newPassword: "",
@@ -115,41 +111,14 @@ export default function StudentSettingsPage() {
   });
   const [pwError, setPwError] = useState("");
   const [pwSuccess, setPwSuccess] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
 
-  // Notification prefs
-  const [notifPrefs, setNotifPrefs] = useState({
-    academic: true,
-    placement: true,
-    general: true,
-  });
-
-  // Appearance
-  const [theme, setTheme] = useState("indigo");
-
-  // Load from localStorage
   useEffect(() => {
     setSelectedLang(localStorage.getItem("helpdesk_lang") || "en");
     setVoiceEnabled(localStorage.getItem("helpdesk_voice") !== "false");
   }, []);
 
-  function changeLang(code: string) {
-    setSelectedLang(code);
-    localStorage.setItem("helpdesk_lang", code);
-  }
-
-  function changeVoice() {
-    const next = !voiceEnabled;
-    setVoiceEnabled(next);
-    localStorage.setItem("helpdesk_voice", String(next));
-  }
-
-  function updateNotif(key: keyof typeof notifPrefs) {
-    const next = { ...notifPrefs, [key]: !notifPrefs[key] };
-    setNotifPrefs(next);
-    localStorage.setItem("helpdesk_notifs", JSON.stringify(next));
-  }
-
-  function handleChangePassword(e: React.FormEvent) {
+  async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     setPwError("");
     if (!pwForm.oldPassword || !pwForm.newPassword || !pwForm.confirmPassword) {
@@ -157,7 +126,7 @@ export default function StudentSettingsPage() {
       return;
     }
     if (pwForm.newPassword === pwForm.oldPassword) {
-      setPwError("New password must differ from current password.");
+      setPwError("New password must differ.");
       return;
     }
     if (pwForm.newPassword !== pwForm.confirmPassword) {
@@ -165,21 +134,43 @@ export default function StudentSettingsPage() {
       return;
     }
     if (pwForm.newPassword.length < 8) {
-      setPwError("New password must be at least 8 characters.");
+      setPwError("Minimum 8 characters.");
       return;
     }
-    // TODO: call PUT /student/change-password
-    setPwSuccess(true);
-    setPwForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
-    setTimeout(() => setPwSuccess(false), 3000);
+    setPwLoading(true);
+    try {
+      await axios.put(
+        `${API_BASE_URL}/student/change-password`,
+        { oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword },
+        { withCredentials: true }
+      );
+      setPwSuccess(true);
+      setPwForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
+      setTimeout(() => setPwSuccess(false), 3000);
+    } catch (err: any) {
+      setPwError(err.response?.data?.message || "Failed to change password.");
+    } finally {
+      setPwLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await axios.post(
+        `${API_BASE_URL}/auth/logout`,
+        {},
+        { withCredentials: true }
+      );
+    } catch {}
+    setUser(null);
+    router.push("/");
   }
 
   const strength = getStrength(pwForm.newPassword);
 
   return (
-    <DashboardLayout user={mockUser}>
+    <DashboardLayout>
       <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-        {/* Header */}
         <div>
           <h2
             className="text-xl font-bold text-slate-900"
@@ -192,7 +183,6 @@ export default function StudentSettingsPage() {
           </p>
         </div>
 
-        {/* ── 1. Profile ──────────────────────────────────────────────── */}
         <Card className="overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
             <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center">
@@ -206,14 +196,13 @@ export default function StudentSettingsPage() {
             </div>
           </div>
           <div className="px-5 py-5 space-y-5">
-            {/* Avatar row */}
             <div className="flex items-center gap-4">
-              <Avatar name={mockUser.name} size="lg" />
+              <Avatar name={user?.fullName || "U"} size="lg" />
               <div>
                 <p className="text-sm font-semibold text-slate-900">
-                  {mockUser.name}
+                  {user?.fullName}
                 </p>
-                <p className="text-xs text-slate-500">{mockUser.email}</p>
+                <p className="text-xs text-slate-500">{user?.email}</p>
                 <Badge label="Student" variant="primary" />
               </div>
               <button
@@ -224,33 +213,26 @@ export default function StudentSettingsPage() {
                 Change photo
               </button>
             </div>
-
-            {/* Info grid */}
             <div className="grid grid-cols-2 gap-3">
-              <InfoField label="Full Name" value={mockUser.name} />
-              <InfoField label="Email" value={mockUser.email} />
-              <InfoField
-                label="Roll Number"
-                value={mockUser.rollNumber || "—"}
-              />
-              <InfoField label="Department" value={mockUser.department} />
+              <InfoField label="Full Name" value={user?.fullName} />
+              <InfoField label="Email" value={user?.email} />
+              <InfoField label="Roll Number" value={user?.rollNumber} />
+              <InfoField label="Department" value={user?.department} />
               <InfoField
                 label="Semester"
-                value={`Semester ${mockUser.semester}`}
+                value={user?.semester ? `Semester ${user.semester}` : undefined}
               />
-              <InfoField label="Branch" value="B.Tech Computer Science" />
-              <InfoField label="Admission Year" value="2023" />
-              <InfoField label="Hostelite" value="No" />
+              <InfoField label="Branch" value={user?.branch} />
+              <InfoField label="Admission Year" value={user?.admissionYear} />
+              <InfoField label="CGPA" value={user?.cgpa?.toFixed(2)} />
             </div>
-
             <p className="text-xs text-slate-400 flex items-center gap-1.5">
               <Lock size={11} />
-              Profile information can only be updated by the administrator.
+              Profile can only be updated by the administrator.
             </p>
           </div>
         </Card>
 
-        {/* ── 2. Change Password ────────────────────────────────────── */}
         <Card className="overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
             <div className="w-8 h-8 bg-amber-50 rounded-xl flex items-center justify-center">
@@ -268,39 +250,36 @@ export default function StudentSettingsPage() {
           <form onSubmit={handleChangePassword} className="px-5 py-5 space-y-4">
             {pwError && (
               <div className="flex items-center gap-2 px-3.5 py-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
-                <AlertTriangle size={13} className="shrink-0" /> {pwError}
+                <AlertTriangle size={13} className="shrink-0" />
+                {pwError}
               </div>
             )}
             {pwSuccess && (
               <div className="flex items-center gap-2 px-3.5 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700">
-                <Check size={13} className="shrink-0" /> Password changed
-                successfully!
+                <Check size={13} className="shrink-0" />
+                Password changed successfully!
               </div>
             )}
-
-            {(
-              [
-                {
-                  key: "oldPassword",
-                  label: "Current Password",
-                  show: showPw.old,
-                  toggle: () => setShowPw((p) => ({ ...p, old: !p.old })),
-                },
-                {
-                  key: "newPassword",
-                  label: "New Password",
-                  show: showPw.new,
-                  toggle: () => setShowPw((p) => ({ ...p, new: !p.new })),
-                },
-                {
-                  key: "confirmPassword",
-                  label: "Confirm New Password",
-                  show: showPw.confirm,
-                  toggle: () =>
-                    setShowPw((p) => ({ ...p, confirm: !p.confirm })),
-                },
-              ] as const
-            ).map(({ key, label, show, toggle }) => (
+            {[
+              {
+                key: "oldPassword" as const,
+                label: "Current Password",
+                show: showPw.old,
+                toggle: () => setShowPw((p) => ({ ...p, old: !p.old })),
+              },
+              {
+                key: "newPassword" as const,
+                label: "New Password",
+                show: showPw.new,
+                toggle: () => setShowPw((p) => ({ ...p, new: !p.new })),
+              },
+              {
+                key: "confirmPassword" as const,
+                label: "Confirm New Password",
+                show: showPw.confirm,
+                toggle: () => setShowPw((p) => ({ ...p, confirm: !p.confirm })),
+              },
+            ].map(({ key, label, show, toggle }) => (
               <div key={key}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   {label}
@@ -326,38 +305,36 @@ export default function StudentSettingsPage() {
                 {key === "newPassword" && strength && (
                   <div className="mt-2">
                     <div className="flex gap-1">
-                      {STRENGTH_ORDER.map((level, i) => (
+                      {SO.map((l, i) => (
                         <div
-                          key={level}
+                          key={l}
                           className={cn(
                             "h-1 flex-1 rounded-full transition-all",
-                            STRENGTH_ORDER.indexOf(strength) >= i
-                              ? STRENGTH_COLOR[strength]
+                            SO.indexOf(strength) >= i
+                              ? SC[strength]
                               : "bg-slate-200"
                           )}
                         />
                       ))}
                     </div>
-                    <p
-                      className={cn(
-                        "text-xs mt-1 font-medium",
-                        STRENGTH_TEXT[strength]
-                      )}
-                    >
+                    <p className={cn("text-xs mt-1 font-medium", ST[strength])}>
                       {strength} password
                     </p>
                   </div>
                 )}
               </div>
             ))}
-
-            <Button type="submit" variant="primary" size="md">
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              loading={pwLoading}
+            >
               Update Password
             </Button>
           </form>
         </Card>
 
-        {/* ── 3. Language & Preferences ─────────────────────────────── */}
         <Card className="overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
             <div className="w-8 h-8 bg-sky-50 rounded-xl flex items-center justify-center">
@@ -367,66 +344,62 @@ export default function StudentSettingsPage() {
               <p className="text-sm font-semibold text-slate-900">
                 Language & Preferences
               </p>
-              <p className="text-xs text-slate-400">
-                AI Helpdesk language and voice settings
-              </p>
+              <p className="text-xs text-slate-400">AI Helpdesk language</p>
             </div>
           </div>
           <div className="px-5 py-5 space-y-5">
-            <div>
-              <p className="text-sm font-medium text-slate-800 mb-0.5">
-                AI Helpdesk Language
-              </p>
-              <p className="text-xs text-slate-500 mb-3">
-                Choose the language for voice input and AI responses
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {LANGUAGES.map((lang) => (
-                  <button
-                    key={lang.code}
-                    onClick={() => changeLang(lang.code)}
-                    className={cn(
-                      "flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-left",
-                      selectedLang === lang.code
-                        ? "border-indigo-500 bg-indigo-50"
-                        : "border-slate-200 hover:border-slate-300 bg-white"
-                    )}
-                  >
-                    <span className="text-xl">{lang.flag}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800">
-                        {lang.label}
-                      </p>
-                      <p className="text-[10px] text-slate-400">{lang.bcp47}</p>
-                    </div>
-                    {selectedLang === lang.code && (
-                      <Check
-                        size={14}
-                        className="text-indigo-600 ml-auto shrink-0"
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => {
+                    setSelectedLang(lang.code);
+                    localStorage.setItem("helpdesk_lang", lang.code);
+                  }}
+                  className={cn(
+                    "flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-left",
+                    selectedLang === lang.code
+                      ? "border-indigo-500 bg-indigo-50"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  )}
+                >
+                  <span className="text-xl">{lang.flag}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-800">
+                      {lang.label}
+                    </p>
+                    <p className="text-[10px] text-slate-400">{lang.bcp47}</p>
+                  </div>
+                  {selectedLang === lang.code && (
+                    <Check
+                      size={14}
+                      className="text-indigo-600 ml-auto shrink-0"
+                    />
+                  )}
+                </button>
+              ))}
             </div>
-
-            <div className="border-t border-slate-100 pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-800">
-                    Enable Voice Input
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Use microphone for hands-free queries in the AI helpdesk
-                  </p>
-                </div>
-                <Toggle value={voiceEnabled} onChange={changeVoice} />
+            <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-800">
+                  Enable Voice Input
+                </p>
+                <p className="text-xs text-slate-500">
+                  Microphone for the AI helpdesk
+                </p>
               </div>
+              <Toggle
+                value={voiceEnabled}
+                onChange={() => {
+                  const n = !voiceEnabled;
+                  setVoiceEnabled(n);
+                  localStorage.setItem("helpdesk_voice", String(n));
+                }}
+              />
             </div>
           </div>
         </Card>
 
-        {/* ── 4. Notification Preferences ─────────────────────────── */}
         <Card className="overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
             <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center">
@@ -440,25 +413,23 @@ export default function StudentSettingsPage() {
             </div>
           </div>
           <div className="px-5 py-2">
-            {(
-              [
-                {
-                  key: "academic",
-                  label: "Academic Notifications",
-                  desc: "Exam schedules, result declarations, and circulars",
-                },
-                {
-                  key: "placement",
-                  label: "Placement Alerts",
-                  desc: "Campus drive announcements and eligibility updates",
-                },
-                {
-                  key: "general",
-                  label: "General Notices",
-                  desc: "Library reminders, hostel updates, and campus info",
-                },
-              ] as const
-            ).map(({ key, label, desc }) => (
+            {[
+              {
+                key: "academic" as const,
+                label: "Academic Notifications",
+                desc: "Exam schedules, result declarations",
+              },
+              {
+                key: "placement" as const,
+                label: "Placement Alerts",
+                desc: "Campus drive announcements",
+              },
+              {
+                key: "general" as const,
+                label: "General Notices",
+                desc: "Campus info and updates",
+              },
+            ].map(({ key, label, desc }) => (
               <div
                 key={key}
                 className="flex items-center justify-between py-4 border-b border-slate-100 last:border-0"
@@ -469,20 +440,15 @@ export default function StudentSettingsPage() {
                 </div>
                 <Toggle
                   value={notifPrefs[key]}
-                  onChange={() => updateNotif(key)}
+                  onChange={() =>
+                    setNotifPrefs((p) => ({ ...p, [key]: !p[key] }))
+                  }
                 />
               </div>
             ))}
           </div>
-          <div className="px-5 pb-4">
-            <p className="text-xs text-slate-400 italic">
-              These preferences will be applied when notifications API is
-              connected.
-            </p>
-          </div>
         </Card>
 
-        {/* ── 5. Appearance ──────────────────────────────────────────── */}
         <Card className="overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
             <div className="w-8 h-8 bg-rose-50 rounded-xl flex items-center justify-center">
@@ -494,12 +460,6 @@ export default function StudentSettingsPage() {
             </div>
           </div>
           <div className="px-5 py-5">
-            <p className="text-sm font-medium text-slate-800 mb-0.5">
-              Color Theme
-            </p>
-            <p className="text-xs text-slate-500 mb-4">
-              Customize your dashboard accent color
-            </p>
             <div className="flex gap-3 flex-wrap">
               {THEMES.map((t) => (
                 <button
@@ -518,14 +478,9 @@ export default function StudentSettingsPage() {
                 />
               ))}
             </div>
-            <p className="text-xs text-slate-400 italic mt-3">
-              Theme switching is visual preview only. Full theme support coming
-              soon.
-            </p>
           </div>
         </Card>
 
-        {/* ── 6. Danger Zone ────────────────────────────────────────── */}
         <Card className="overflow-hidden border-red-200">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-red-100">
             <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center">
@@ -533,25 +488,16 @@ export default function StudentSettingsPage() {
             </div>
             <p className="text-sm font-semibold text-red-600">Account</p>
           </div>
-          <div className="px-5 py-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-800">Sign Out</p>
-                <p className="text-xs text-slate-500">
-                  Sign out from all devices and clear your session
-                </p>
-              </div>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => {
-                  // TODO: call POST /auth/logout before redirect
-                  router.push("/login");
-                }}
-              >
-                Sign Out
-              </Button>
+          <div className="px-5 py-5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-800">Sign Out</p>
+              <p className="text-xs text-slate-500">
+                Sign out from all devices
+              </p>
             </div>
+            <Button variant="danger" size="sm" onClick={handleLogout}>
+              Sign Out
+            </Button>
           </div>
         </Card>
       </div>

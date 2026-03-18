@@ -22,4 +22,29 @@ const uploadFileToCloudinary = async (fileBuffer: Buffer, folder: string) => {
   });
 };
 
-export { uploadFileToCloudinary };
+const uploadPdfToCloudinary = async (
+  fileBuffer: Buffer,
+  folder: string,
+  originalName: string
+) => {
+  return new Promise((resolve, reject) => {
+    const cleanName = originalName.replace(/\.[^/.]+$/, "");
+
+    const upload = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "image",
+        format: "pdf",
+        public_id: cleanName,
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+
+    upload.end(fileBuffer);
+  });
+};
+
+export { uploadFileToCloudinary, uploadPdfToCloudinary };

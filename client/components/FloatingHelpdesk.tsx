@@ -1,453 +1,469 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import {
-  MessageSquare,
-  X,
-  Send,
-  Mic,
-  MicOff,
-  Sparkles,
-  ChevronDown,
-  Check,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { createPortal } from "react-dom";
+import axios from "axios";
+import { MessageCircle, X, Send, Mic, MicOff, ChevronDown } from "lucide-react";
+import { API_BASE_URL } from "@/lib/constants";
 
-// ── Language config ────────────────────────────────────────────────────────
+// ── Config ─────────────────────────────────────────────────────────────────
 
-const LANGUAGES = [
-  { code: "en", label: "English", flag: "🇬🇧", bcp47: "en-IN" },
-  { code: "hi", label: "Hindi", flag: "🇮🇳", bcp47: "hi-IN" },
-  { code: "or", label: "Odia", flag: "🪷", bcp47: "or-IN" },
-  { code: "bn", label: "Bengali", flag: "🇧🇩", bcp47: "bn-IN" },
-  { code: "te", label: "Telugu", flag: "🔵", bcp47: "te-IN" },
-  { code: "ta", label: "Tamil", flag: "🟡", bcp47: "ta-IN" },
+const LANGS = [
+  { code: "en", label: "English", flag: "🇬🇧" },
+  { code: "hi", label: "हिन्दी", flag: "🇮🇳" },
+  { code: "or", label: "ଓଡ଼ିଆ", flag: "🇮🇳" },
+  { code: "bn", label: "বাংলা", flag: "🇮🇳" },
+  { code: "te", label: "తెలుగు", flag: "🇮🇳" },
+];
+
+const CHIPS = [
+  "How do I apply?",
+  "Fee structure",
+  "Placement stats",
+  "CGPA calculation",
+  "Mess menu",
+  "Hostel info",
 ];
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "bot";
   content: string;
-  timestamp: Date;
 }
 
-function formatTime(d: Date) {
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+// ── Markdown helper ────────────────────────────────────────────────────────
+
+function renderMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.*?)\*/g, "<em>$1</em>")
+    .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
+    .replace(/<li>/g, "<ul class='list-disc ml-4 space-y-0.5 my-1'><li>")
+    .replace(/<\/li>/g, "</li></ul>")
+    .replace(/\n{2,}/g, "<br/>");
 }
 
-// ── Bot avatar ─────────────────────────────────────────────────────────────
+// ── Main UI ────────────────────────────────────────────────────────────────
 
-function BotAvatar({ size = "sm" }: { size?: "sm" | "md" }) {
-  const dim = size === "sm" ? "w-7 h-7" : "w-8 h-8";
-  const icon = size === "sm" ? 13 : 16;
-  return (
-    <div
-      className={`${dim} rounded-full bg-indigo-100 flex items-center justify-center shrink-0`}
-    >
-      <Sparkles size={icon} className="text-indigo-600" />
-    </div>
-  );
-}
-
-// ── Main component ─────────────────────────────────────────────────────────
-
-export default function FloatingHelpdesk() {
+function HelpdeskUI() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [msgs, setMsgs] = useState<Message[]>([
+    {
+      id: "0",
+      role: "bot",
+      content:
+        "Hi! I'm the UniERP Assistant 👋 Ask me about admissions, fees, exams, hostel, placements, or anything about NIST.",
+    },
+  ]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [language, setLanguage] = useState("en");
-  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const [lang, setLang] = useState("en");
+  const [langOpen, setLangOpen] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [hasUnread, setHasUnread] = useState(true);
   const [speechSupported, setSpeechSupported] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
-  const langMenuRef = useRef<HTMLDivElement>(null);
+  const idRef = useRef(1);
 
-  // Read language from localStorage
+  // Restore language
   useEffect(() => {
-    const saved = localStorage.getItem("helpdesk_lang") || "en";
-    setLanguage(saved);
+    const saved = localStorage.getItem("helpdesk_lang");
+    if (saved) setLang(saved);
   }, []);
 
-  // Speech API setup
+  // Speech recognition
   useEffect(() => {
     const SR =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
-    if (SR) {
-      setSpeechSupported(true);
-      const rec = new SR();
-      rec.continuous = false;
-      rec.interimResults = true;
-      recognitionRef.current = rec;
-    }
+    if (!SR) return;
+    setSpeechSupported(true);
+    const rec = new SR();
+    rec.continuous = false;
+    rec.interimResults = true;
+    recognitionRef.current = rec;
   }, []);
 
   // Update recognition language
   useEffect(() => {
     if (recognitionRef.current) {
-      const lang = LANGUAGES.find((l) => l.code === language);
-      recognitionRef.current.lang = lang?.bcp47 || "en-IN";
+      const bcp47: Record<string, string> = {
+        en: "en-IN",
+        hi: "hi-IN",
+        or: "or-IN",
+        bn: "bn-IN",
+        te: "te-IN",
+      };
+      recognitionRef.current.lang = bcp47[lang] ?? "en-IN";
     }
-  }, [language]);
+  }, [lang]);
 
   // Scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+    if (bodyRef.current)
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+  }, [msgs, typing]);
 
-  // Close lang menu on outside click
+  // Open/close animation
   useEffect(() => {
-    if (!langMenuOpen) return;
-    function handler(e: MouseEvent) {
-      if (
-        langMenuRef.current &&
-        !langMenuRef.current.contains(e.target as Node)
-      ) {
-        setLangMenuOpen(false);
-      }
+    if (isOpen) {
+      setIsMounted(true);
+      setHasUnread(false);
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => setIsVisible(true))
+      );
+      setTimeout(() => inputRef.current?.focus(), 200);
+    } else {
+      setIsVisible(false);
+      const t = setTimeout(() => setIsMounted(false), 300);
+      return () => clearTimeout(t);
     }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [langMenuOpen]);
+  }, [isOpen]);
 
-  // ── Send ──────────────────────────────────────────────────────────────────
+  // ── Send ────────────────────────────────────────────────────────────────
 
-  const sendMessage = useCallback(() => {
-    const text = input.trim();
-    if (!text) return;
+  const send = useCallback(
+    async (text?: string) => {
+      const msg = (text ?? input).trim();
+      if (!msg || typing) return;
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: text,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
-    setIsTyping(true);
-
-    setTimeout(() => {
-      setIsTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content:
-            "I'm currently in demo mode. Full AI integration with your university data is coming soon! 🎓",
-          timestamp: new Date(),
-        },
+      setMsgs((p) => [
+        ...p,
+        { id: String(idRef.current++), role: "user", content: msg },
       ]);
-      // TODO: Replace with real AI API call
-    }, 1500);
-  }, [input]);
+      setInput("");
+      setTyping(true);
 
-  // ── Voice ─────────────────────────────────────────────────────────────────
+      try {
+        const { data } = await axios.post(
+          `${API_BASE_URL}/chat`,
+          { message: msg, language: lang },
+          { withCredentials: true }
+        );
+        const output: string = data?.data?.output ?? "";
+        if (output) {
+          setMsgs((p) => [
+            ...p,
+            { id: String(idRef.current++), role: "bot", content: output },
+          ]);
+        }
+      } catch (err: any) {
+        const errMsg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Network error. Please try again.";
+        setMsgs((p) => [
+          ...p,
+          { id: String(idRef.current++), role: "bot", content: errMsg },
+        ]);
+      } finally {
+        setTyping(false);
+      }
+    },
+    [input, lang, typing]
+  );
+
+  // ── Voice ───────────────────────────────────────────────────────────────
 
   function toggleMic() {
     if (!speechSupported || !recognitionRef.current) return;
-
-    if (isRecording) {
+    if (listening) {
       recognitionRef.current.stop();
-      setIsRecording(false);
+      setListening(false);
       return;
     }
-
-    setIsRecording(true);
-
-    recognitionRef.current.onresult = (event: any) => {
-      const results = Array.from(event.results as SpeechRecognitionResultList);
-
-      const transcript = results.map((r) => r[0].transcript).join("");
-
+    setListening(true);
+    recognitionRef.current.onresult = (e: any) => {
+      const transcript = Array.from(e.results as SpeechRecognitionResultList)
+        .map((r) => r[0].transcript)
+        .join("");
       setInput(transcript);
     };
-
-    recognitionRef.current.onend = () => {
-      setIsRecording(false);
-    };
-
-    recognitionRef.current.onerror = () => {
-      setIsRecording(false);
-    };
-
+    recognitionRef.current.onend = () => setListening(false);
+    recognitionRef.current.onerror = () => setListening(false);
     recognitionRef.current.start();
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  }
-
-  function handleInput(e: React.FormEvent<HTMLTextAreaElement>) {
-    const el = e.currentTarget;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 120) + "px";
-  }
-
-  function changeLanguage(code: string) {
-    setLanguage(code);
+  function changeLang(code: string) {
+    setLang(code);
     localStorage.setItem("helpdesk_lang", code);
-    setLangMenuOpen(false);
+    setLangOpen(false);
   }
 
-  const currentLang =
-    LANGUAGES.find((l) => l.code === language) ?? LANGUAGES[0];
-  const hasMessages = messages.length > 0;
-
-  // ── Render ────────────────────────────────────────────────────────────────
+  const curLang = LANGS.find((l) => l.code === lang) ?? LANGS[0];
 
   return (
     <>
-      {/* ── Chat Panel ─────────────────────────────────── */}
-      <div
-        className={cn(
-          "fixed bottom-24 right-6 z-50 flex flex-col",
-          "w-[390px] h-[560px]",
-          "max-sm:w-[calc(100vw-2rem)] max-sm:right-4 max-sm:bottom-20",
-          "bg-white border border-slate-200 rounded-2xl overflow-hidden",
-          "shadow-2xl shadow-slate-200/60",
-          "transition-all duration-200 origin-bottom-right",
-          isOpen
-            ? "opacity-100 scale-100 pointer-events-auto"
-            : "opacity-0 scale-95 pointer-events-none"
-        )}
-      >
-        {/* ── Header ──────────────────────────────────── */}
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 py-3.5 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-              <Sparkles size={16} className="text-white" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white leading-tight">
-                AI Helpdesk
-              </p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="text-[11px] text-white/70">Online</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Language selector */}
-            <div className="relative" ref={langMenuRef}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLangMenuOpen((v) => !v);
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 transition-all"
-              >
-                <span className="text-base leading-none">
-                  {currentLang.flag}
-                </span>
-                <span className="text-[11px] font-semibold text-white uppercase">
-                  {currentLang.code}
-                </span>
-                <ChevronDown size={11} className="text-white/70" />
-              </button>
-
-              {langMenuOpen && (
-                <div className="absolute top-full right-0 mt-1.5 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 w-44 z-50 animate-slide-up">
-                  {LANGUAGES.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => changeLanguage(lang.code)}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-all hover:bg-slate-50",
-                        language === lang.code
-                          ? "text-indigo-600 font-semibold bg-indigo-50/50"
-                          : "text-slate-700"
-                      )}
-                    >
-                      <span className="text-base">{lang.flag}</span>
-                      <span className="flex-1 text-left">{lang.label}</span>
-                      {language === lang.code && (
-                        <Check size={13} className="text-indigo-600" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Close button */}
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
-            >
-              <X size={16} className="text-white/80 hover:text-white" />
-            </button>
-          </div>
-        </div>
-
-        {/* ── Messages ────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-slate-50/50">
-          {/* Static welcome */}
-          <div className="flex gap-2.5 items-start">
-            <BotAvatar size="sm" />
-            <div>
-              <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm text-slate-700 shadow-sm max-w-[85%]">
-                Hi! I&apos;m your UniERP assistant 👋 Ask me anything about your
-                courses, results, attendance, or campus info.
-              </div>
-              <p className="text-[10px] text-slate-400 ml-0.5 mt-0.5">
-                Just now
-              </p>
-            </div>
-          </div>
-
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={cn(
-                "flex gap-2.5 items-start",
-                msg.role === "user" && "flex-row-reverse"
-              )}
-            >
-              {msg.role === "assistant" && <BotAvatar size="sm" />}
-              <div>
+      {/* ── Chat Panel ── */}
+      {isMounted && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "88px",
+            right: "16px",
+            zIndex: 99999,
+            maxHeight: "calc(100vh - 110px)",
+            width: "min(390px, calc(100vw - 32px))",
+          }}
+          className={`flex flex-col bg-white rounded-[22px] border border-slate-200 overflow-hidden shadow-2xl shadow-slate-900/15 transition-all duration-200 origin-bottom-right
+            ${isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
+        >
+          {/* Header */}
+          <div
+            className="shrink-0 px-4 pt-5 pb-0"
+            style={{
+              background:
+                "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%)",
+            }}
+          >
+            <div className="flex items-start justify-between mb-4">
+              {/* Orb + name */}
+              <div className="flex items-center gap-3">
                 <div
-                  className={cn(
-                    "rounded-2xl px-3.5 py-2.5 text-sm shadow-sm max-w-[85%]",
-                    msg.role === "user"
-                      ? "bg-indigo-600 text-white rounded-br-sm"
-                      : "bg-white border border-slate-200 text-slate-700 rounded-tl-sm"
-                  )}
-                >
-                  {msg.content}
+                  className="w-12 h-12 rounded-full shrink-0"
+                  style={{
+                    background:
+                      "radial-gradient(circle at 32% 30%, #93c5fd 0%, #3b82f6 35%, #1d4ed8 65%, #1e1b4b 100%)",
+                  }}
+                />
+                <div>
+                  <div className="text-white font-bold text-[15px] leading-snug">
+                    UniERP Assistant
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                    <span className="text-white/55 text-[12px]">
+                      Online · Multilingual AI
+                    </span>
+                  </div>
                 </div>
-                <p
-                  className={cn(
-                    "text-[10px] text-slate-400 mt-0.5",
-                    msg.role === "user" ? "text-right text-white/60" : ""
+              </div>
+
+              {/* Controls */}
+              <div className="flex items-center gap-2">
+                {/* Lang picker */}
+                <div className="relative">
+                  <button
+                    onClick={() => setLangOpen((v) => !v)}
+                    className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl px-3 py-1.5 text-[12px] font-semibold transition-all"
+                  >
+                    <span className="text-[13px]">{curLang.flag}</span>
+                    {curLang.label}
+                    <ChevronDown
+                      size={9}
+                      className={`transition-transform duration-200 ${langOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  {langOpen && (
+                    <div
+                      className="absolute right-0 top-[calc(100%+8px)] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden min-w-[140px]"
+                      style={{ zIndex: 100000 }}
+                    >
+                      {LANGS.map((l) => (
+                        <button
+                          key={l.code}
+                          onClick={() => changeLang(l.code)}
+                          className={`w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2.5 transition-colors
+                            ${l.code === lang ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"}`}
+                        >
+                          <span className="text-[15px]">{l.flag}</span>
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
                   )}
+                </div>
+                {/* Close */}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/60 hover:text-white flex items-center justify-center transition-all"
                 >
-                  {formatTime(msg.timestamp)}
-                </p>
+                  <X size={14} />
+                </button>
               </div>
             </div>
-          ))}
 
-          {/* Typing indicator */}
-          {isTyping && (
-            <div className="flex gap-2.5 items-start">
-              <BotAvatar size="sm" />
-              <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                <div className="flex gap-1.5 items-center">
+            {/* Quick chips */}
+            <div
+              className="flex gap-2 overflow-x-auto pb-4"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {CHIPS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => send(q)}
+                  className="shrink-0 text-[12px] font-medium text-white/80 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full px-3.5 py-1.5 whitespace-nowrap transition-all"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div
+            ref={bodyRef}
+            className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 bg-white"
+            style={{ minHeight: 180, maxHeight: 300 }}
+          >
+            {msgs.map((m) => (
+              <div
+                key={m.id}
+                className={`flex gap-2 items-end ${m.role === "user" ? "flex-row-reverse" : ""}`}
+              >
+                {m.role === "bot" && (
+                  <div
+                    className="w-7 h-7 rounded-full shrink-0 mb-0.5"
+                    style={{
+                      background:
+                        "radial-gradient(circle at 32% 30%,#93c5fd,#1d4ed8)",
+                    }}
+                  />
+                )}
+                <div
+                  className={`max-w-[78%] text-[13px] leading-relaxed px-3.5 py-2.5
+                  ${
+                    m.role === "bot"
+                      ? "bg-slate-50 border border-slate-100 text-slate-800 rounded-tl-sm rounded-tr-2xl rounded-b-2xl"
+                      : "bg-slate-900 text-white rounded-tr-sm rounded-tl-2xl rounded-b-2xl"
+                  }`}
+                >
+                  {m.role === "bot" ? (
+                    <span
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdown(m.content),
+                      }}
+                    />
+                  ) : (
+                    m.content
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {typing && (
+              <div className="flex gap-2 items-end">
+                <div
+                  className="w-7 h-7 rounded-full shrink-0"
+                  style={{
+                    background:
+                      "radial-gradient(circle at 32% 30%,#93c5fd,#1d4ed8)",
+                  }}
+                />
+                <div className="bg-slate-50 border border-slate-100 rounded-tl-sm rounded-tr-2xl rounded-b-2xl px-4 py-3 flex gap-1.5 items-center">
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
-                      className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                      className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
                       style={{ animationDelay: `${i * 0.15}s` }}
                     />
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* ── Input Bar ───────────────────────────────── */}
-        <div className="border-t border-slate-100 bg-white p-3 shrink-0">
-          {/* Recording indicator */}
-          {isRecording && (
-            <div className="flex items-center gap-2 px-1 mb-1.5">
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-xs text-red-500 font-medium">
-                Listening in {currentLang.label}...
-              </span>
-            </div>
-          )}
-
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onInput={handleInput}
-              placeholder="Ask anything..."
-              className={cn(
-                "flex-1 resize-none min-h-[40px] max-h-[120px]",
-                "px-3.5 py-2.5 text-sm",
-                "border border-slate-200 rounded-xl",
-                "bg-slate-50 placeholder:text-slate-400",
-                "outline-none focus:border-indigo-400 focus:bg-white",
-                "focus:ring-2 focus:ring-indigo-100 transition-all"
-              )}
-            />
-
-            {speechSupported && (
-              <button
-                onClick={toggleMic}
-                title="Voice input"
-                className={cn(
-                  "w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center transition-all",
-                  isRecording
-                    ? "bg-red-100 text-red-500 animate-pulse"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-500"
-                )}
-              >
-                {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
-              </button>
             )}
+          </div>
 
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() && !isRecording}
-              title="Send message"
-              className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Send size={15} />
-            </button>
+          {/* Input */}
+          <div className="px-4 pb-4 pt-3 shrink-0 border-t border-slate-100 bg-white">
+            <div className="flex items-center gap-2 bg-slate-50 border-[1.5px] border-slate-200 focus-within:border-blue-400 rounded-2xl px-3.5 py-2 transition-colors">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && send()}
+                placeholder="Ask anything about NIST…"
+                className="flex-1 text-[13px] text-slate-800 bg-transparent border-none outline-none placeholder-slate-400 caret-blue-600"
+              />
+              {speechSupported && (
+                <button
+                  onClick={toggleMic}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0
+                    ${listening ? "bg-red-100 text-red-500" : "bg-transparent text-slate-400 hover:text-slate-600"}`}
+                >
+                  {listening ? <MicOff size={13} /> : <Mic size={13} />}
+                </button>
+              )}
+              <button
+                onClick={() => send()}
+                disabled={!input.trim() || typing}
+                className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0
+                  ${input.trim() && !typing ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
+              >
+                <Send size={12} />
+              </button>
+            </div>
+            <p className="text-center mt-2 text-[10px] text-slate-300">
+              UniERP AI · Verify important info with staff
+            </p>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Trigger Button ──────────────────────────────── */}
+      {/* ── FAB ── */}
       <button
         onClick={() => setIsOpen((v) => !v)}
-        aria-label="Toggle AI Helpdesk"
-        className={cn(
-          "fixed bottom-6 right-6 z-50",
-          "w-14 h-14 rounded-full",
-          "bg-indigo-600 shadow-lg shadow-indigo-200",
-          "hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-300",
-          "hover:-translate-y-0.5",
-          "flex items-center justify-center",
-          "transition-all duration-200 relative"
-        )}
+        aria-label="Open AI Helpdesk"
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "16px",
+          zIndex: 99999,
+        }}
+        className={`w-14 h-14 rounded-[18px] flex items-center justify-center relative
+          transition-all duration-200 hover:-translate-y-1 active:scale-95
+          ${
+            isOpen
+              ? "bg-slate-700 shadow-xl shadow-slate-900/30"
+              : "bg-blue-700 shadow-xl shadow-blue-800/40 hover:shadow-blue-600/50 hover:shadow-2xl"
+          }`}
       >
-        {isOpen ? (
-          <X size={22} className="text-white" />
-        ) : (
-          <MessageSquare size={22} className="text-white" />
-        )}
-
-        {/* Unread dot */}
-        {hasMessages && !isOpen && (
-          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+        <div
+          className="absolute transition-all duration-200"
+          style={{
+            opacity: isOpen ? 0 : 1,
+            transform: isOpen
+              ? "scale(.5) rotate(-70deg)"
+              : "scale(1) rotate(0deg)",
+          }}
+        >
+          <MessageCircle size={22} color="#fff" />
+        </div>
+        <div
+          className="absolute transition-all duration-200"
+          style={{
+            opacity: isOpen ? 1 : 0,
+            transform: isOpen
+              ? "scale(1) rotate(0deg)"
+              : "scale(.5) rotate(70deg)",
+          }}
+        >
+          <X size={22} color="#fff" />
+        </div>
+        {hasUnread && !isOpen && (
+          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center border-2 border-white">
+            1
+          </span>
         )}
       </button>
     </>
   );
+}
+
+// ── Portal wrapper ─────────────────────────────────────────────────────────
+
+export default function FloatingHelpdesk() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted) return null;
+  return createPortal(<HelpdeskUI />, document.body);
 }

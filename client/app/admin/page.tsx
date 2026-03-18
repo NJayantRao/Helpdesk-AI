@@ -75,7 +75,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <DashboardLayout user={mockAdminUser}>
+      <DashboardLayout>
         <AdminDashboardSkeleton />
       </DashboardLayout>
     );
@@ -85,7 +85,7 @@ export default function AdminDashboard() {
   const admins = mockUsers.filter((u) => u.role === "admin");
 
   return (
-    <DashboardLayout user={mockAdminUser}>
+    <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
         <div>

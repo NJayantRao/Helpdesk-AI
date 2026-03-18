@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { DEPARTMENTS } from "@/lib/constants";
+import { DEPARTMENTS, API_BASE_URL } from "@/lib/constants";
 import { SystemDashboardSkeleton } from "@/components/Skeleton";
 import {
   Users,
@@ -18,7 +18,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Database,
-  Server,
+  FileText,
   Lock,
   Eye,
   EyeOff,
@@ -27,10 +27,8 @@ import {
   Loader2,
   X,
   RefreshCw,
-  FileText,
+  Server,
 } from "lucide-react";
-
-// ── Mock data for system dashboard ─────────────────────────────────────────
 
 const SYSTEM_STATS = [
   {
@@ -130,7 +128,6 @@ const SYSTEM_HEALTH = [
 ];
 
 // ── Register Modal ──────────────────────────────────────────────────────────
-
 interface RegisterFormData {
   fullName: string;
   email: string;
@@ -138,9 +135,7 @@ interface RegisterFormData {
   gender: string;
   branch: string;
   departmentId: string;
-  // student only
-  isHostel: string;
-  // admin only
+  isHostelite: boolean;
   designation: string;
 }
 
@@ -158,25 +153,64 @@ function RegisterModal({
     gender: "MALE",
     branch: "",
     departmentId: "",
-    isHostel: "false",
+    isHostelite: false,
     designation: "",
   });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
-  function update(key: keyof RegisterFormData, val: string) {
+  function update(key: keyof RegisterFormData, val: string | boolean) {
     setForm((p) => ({ ...p, [key]: val }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    // TODO: call POST /api/v1/auth/student/register or /auth/admin/register
-    setLoading(false);
-    setSuccess(true);
-    setTimeout(onClose, 1500);
+    setError("");
+    try {
+      const endpoint =
+        type === "student"
+          ? `${API_BASE_URL}/auth/student/register`
+          : `${API_BASE_URL}/auth/admin/register`;
+
+      const payload =
+        type === "student"
+          ? {
+              fullName: form.fullName,
+              email: form.email,
+              password: form.password,
+              gender: form.gender,
+              branch: form.branch,
+              departmentId: form.departmentId,
+              isHostelite: Boolean(form.isHostelite),
+            }
+          : {
+              fullName: form.fullName,
+              email: form.email,
+              password: form.password,
+              gender: form.gender,
+              branch: form.branch,
+              departmentId: form.departmentId,
+              designation: form.designation,
+            };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || "Registration failed");
+      setSuccess(true);
+      setTimeout(onClose, 1500);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const inputClass =
@@ -188,8 +222,7 @@ function RegisterModal({
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto animate-slide-up">
-        {/* Header */}
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
           <div className="flex items-center gap-3">
             <div
@@ -234,36 +267,39 @@ function RegisterModal({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            {/* Full Name */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Full Name
-              </label>
-              <input
-                required
-                value={form.fullName}
-                onChange={(e) => update("fullName", e.target.value)}
-                placeholder="e.g. Arjun Sharma"
-                className={inputClass}
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                University Email
-              </label>
-              <input
-                required
-                type="email"
-                value={form.email}
-                onChange={(e) => update("email", e.target.value)}
-                placeholder="e.g. arjun@nist.edu"
-                className={inputClass}
-              />
-            </div>
-
-            {/* Password */}
+            {error && (
+              <div className="px-3.5 py-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
+                {error}
+              </div>
+            )}
+            {[
+              {
+                key: "fullName" as const,
+                label: "Full Name",
+                type: "text",
+                placeholder: "e.g. Arjun Sharma",
+              },
+              {
+                key: "email" as const,
+                label: "University Email",
+                type: "email",
+                placeholder: "e.g. arjun@nist.edu",
+              },
+            ].map((f) => (
+              <div key={f.key}>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  {f.label}
+                </label>
+                <input
+                  required
+                  type={f.type}
+                  value={form[f.key]}
+                  onChange={(e) => update(f.key, e.target.value)}
+                  placeholder={f.placeholder}
+                  className={inputClass}
+                />
+              </div>
+            ))}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Password
@@ -286,8 +322,6 @@ function RegisterModal({
                 </button>
               </div>
             </div>
-
-            {/* Gender */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Gender
@@ -302,28 +336,21 @@ function RegisterModal({
                 <option value="OTHERS">Others</option>
               </select>
             </div>
-
-            {/* Department */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Department
+                Department ID
               </label>
-              <select
+              <input
+                required
                 value={form.departmentId}
                 onChange={(e) => update("departmentId", e.target.value)}
-                required
+                placeholder="Paste department UUID from server"
                 className={inputClass}
-              >
-                <option value="">Select department</option>
-                {DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Get UUIDs from GET /department/ endpoint
+              </p>
             </div>
-
-            {/* Branch */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Branch
@@ -336,16 +363,16 @@ function RegisterModal({
                 className={inputClass}
               />
             </div>
-
-            {/* Student-only: Hostelite */}
             {type === "student" && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   Hostelite
                 </label>
                 <select
-                  value={form.isHostel}
-                  onChange={(e) => update("isHostel", e.target.value)}
+                  value={String(form.isHostelite)}
+                  onChange={(e) =>
+                    update("isHostelite", e.target.value === "true")
+                  }
                   className={inputClass}
                 >
                   <option value="false">No</option>
@@ -353,8 +380,6 @@ function RegisterModal({
                 </select>
               </div>
             )}
-
-            {/* Admin-only: Designation */}
             {type === "admin" && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -369,7 +394,6 @@ function RegisterModal({
                 />
               </div>
             )}
-
             <button
               type="submit"
               disabled={loading}
@@ -377,20 +401,16 @@ function RegisterModal({
             >
               {loading ? (
                 <>
-                  <Loader2 size={15} className="animate-spin" /> Registering...
+                  <Loader2 size={15} className="animate-spin" />
+                  Registering...
                 </>
               ) : (
                 <>
-                  <Plus size={15} /> Register{" "}
-                  {type === "student" ? "Student" : "Admin"}
+                  <Plus size={15} />
+                  Register {type === "student" ? "Student" : "Admin"}
                 </>
               )}
             </button>
-
-            <p className="text-[11px] text-center text-slate-400">
-              // TODO: POST /api/v1/auth/
-              {type === "student" ? "student" : "admin"}/register
-            </p>
           </form>
         )}
       </div>
@@ -399,7 +419,6 @@ function RegisterModal({
 }
 
 // ── System Dashboard ────────────────────────────────────────────────────────
-
 export default function SystemDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -415,6 +434,13 @@ export default function SystemDashboard() {
     setRefreshing(true);
     await new Promise((r) => setTimeout(r, 800));
     setRefreshing(false);
+  }
+
+  function handleSignOut() {
+    fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    }).finally(() => router.push("/"));
   }
 
   if (loading) {
@@ -447,11 +473,9 @@ export default function SystemDashboard() {
   return (
     <>
       {modal && <RegisterModal type={modal} onClose={() => setModal(null)} />}
-
       <div className="flex h-screen bg-slate-50 overflow-hidden">
-        {/* ── Sidebar ──────────────────────────────────────────────────── */}
+        {/* Sidebar */}
         <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 shrink-0">
-          {/* Logo */}
           <div className="px-5 py-5 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
@@ -467,8 +491,6 @@ export default function SystemDashboard() {
               </div>
             </div>
           </div>
-
-          {/* Identity */}
           <div className="px-4 py-4 border-b border-slate-100">
             <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl">
               <div className="w-9 h-9 bg-purple-200 rounded-full flex items-center justify-center text-purple-700 text-sm font-bold shrink-0">
@@ -487,8 +509,6 @@ export default function SystemDashboard() {
               </span>
             </div>
           </div>
-
-          {/* Nav */}
           <nav className="flex-1 px-3 py-4 space-y-0.5">
             {[
               { icon: Activity, label: "Overview", active: true },
@@ -514,24 +534,23 @@ export default function SystemDashboard() {
               </button>
             ))}
           </nav>
-
-          {/* Bottom */}
           <div className="px-3 py-4 border-t border-slate-100 space-y-0.5">
             <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 w-full transition-all">
-              <Settings size={17} /> Settings
+              <Settings size={17} />
+              Settings
             </button>
-            <Link
-              href="/login"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all"
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all w-full"
             >
-              <LogOut size={17} /> Sign Out
-            </Link>
+              <LogOut size={17} />
+              Sign Out
+            </button>
           </div>
         </aside>
 
-        {/* ── Main ─────────────────────────────────────────────────────── */}
+        {/* Main */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Topbar */}
           <header className="bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between shrink-0">
             <div>
               <h1 className="text-sm font-semibold text-slate-900">
@@ -560,19 +579,15 @@ export default function SystemDashboard() {
             </div>
           </header>
 
-          {/* Content */}
           <main className="flex-1 overflow-y-auto p-5 space-y-6 animate-fade-in">
-            {/* Warning banner */}
             <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
               <AlertTriangle size={15} className="shrink-0" />
               <span>
                 You are logged in as a <strong>System Operator</strong>. All
-                actions are logged and audited. Exercise caution when
-                registering users or modifying departments.
+                actions are logged and audited.
               </span>
             </div>
 
-            {/* Header */}
             <div className="flex items-center justify-between">
               <div>
                 <h2
@@ -590,13 +605,15 @@ export default function SystemDashboard() {
                   onClick={() => setModal("student")}
                   className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl hover:bg-indigo-700 transition-all"
                 >
-                  <Plus size={13} /> Register Student
+                  <Plus size={13} />
+                  Register Student
                 </button>
                 <button
                   onClick={() => setModal("admin")}
                   className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 text-white text-xs font-semibold rounded-xl hover:bg-amber-600 transition-all"
                 >
-                  <Plus size={13} /> Register Admin
+                  <Plus size={13} />
+                  Register Admin
                 </button>
               </div>
             </div>
@@ -635,7 +652,6 @@ export default function SystemDashboard() {
               ))}
             </div>
 
-            {/* Main grid */}
             <div className="grid lg:grid-cols-2 gap-5">
               {/* Recent Registrations */}
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
@@ -780,8 +796,7 @@ export default function SystemDashboard() {
                 </div>
                 <p className="text-xs text-slate-400 mt-4 flex items-center gap-1.5">
                   <Lock size={11} />
-                  Department creation requires system operator access. Contact
-                  IT to add new departments.
+                  Department creation requires system operator access.
                 </p>
               </div>
             </div>

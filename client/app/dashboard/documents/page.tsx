@@ -1,9 +1,11 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, EmptyState } from "@/components/ui";
-import { mockUser, mockDocuments } from "@/lib/utils";
 import { DocumentsSkeleton } from "@/components/Skeleton";
+import { API_BASE_URL } from "@/lib/constants";
 import {
   FileText,
   Search,
@@ -22,68 +24,77 @@ const categoryLabels: Record<string, string> = {
   syllabus: "Syllabus",
   result: "Result",
 };
-
-const TYPE_COLORS: Record<
-  string,
-  { bg: string; text: string; icon: typeof FileText }
-> = {
-  syllabus: {
-    bg: "bg-indigo-50",
-    text: "text-indigo-600",
-    icon: BookOpen,
-  },
-  circular: {
-    bg: "bg-amber-50",
-    text: "text-amber-600",
-    icon: TrendingUp,
-  },
+const TYPE_COLORS: Record<string, { bg: string; text: string; icon: any }> = {
+  syllabus: { bg: "bg-indigo-50", text: "text-indigo-600", icon: BookOpen },
+  circular: { bg: "bg-amber-50", text: "text-amber-600", icon: TrendingUp },
   result: { bg: "bg-emerald-50", text: "text-emerald-600", icon: FileText },
   notice: { bg: "bg-red-50", text: "text-red-600", icon: BellRing },
 };
-
 const CATEGORIES = ["All", "notice", "circular", "syllabus", "result"];
 
+const handleDownloadPdf = async (fileUrl: string, title: string) => {
+  const response = await fetch(fileUrl);
+  const blob = await response.blob();
+
+  const url = window.URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${title}.pdf`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  window.URL.revokeObjectURL(url);
+};
+
 export default function DocumentsPage() {
+  const router = useRouter();
+  const [docs, setDocs] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [toast, setToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
-  }, []);
+    const params = new URLSearchParams();
+    if (category !== "All") params.set("category", category);
+    if (search) params.set("search", search);
+    const qs = params.toString();
 
-  if (loading) {
+    setLoading(true);
+    axios
+      .get(`${API_BASE_URL}/student/documents${qs ? `?${qs}` : ""}`, {
+        withCredentials: true,
+      })
+      .then((res) => {
+        const d = res.data?.data ?? res.data;
+        setDocs(d.documents || []);
+        setTotal(d.total || 0);
+        setError("");
+      })
+      .catch((err) => {
+        if (err.response?.status === 401 || err.response?.status === 403)
+          router.push("/login");
+        else
+          setError(err.response?.data?.message || "Failed to load documents");
+      })
+      .finally(() => setLoading(false));
+  }, [category, search]);
+
+  if (loading && docs.length === 0)
     return (
-      <DashboardLayout user={mockUser}>
+      <DashboardLayout>
         <DocumentsSkeleton />
       </DashboardLayout>
     );
-  }
-
-  const filtered = mockDocuments.filter((d) => {
-    const matchesSearch =
-      !search ||
-      d.title.toLowerCase().includes(search.toLowerCase()) ||
-      d.department.toLowerCase().includes(search.toLowerCase());
-    const matchesCat = category === "All" || d.type === category;
-    return matchesSearch && matchesCat;
-  });
-
-  function handleOpen(url?: string) {
-    if (url) {
-      window.open(url, "_blank");
-    } else {
-      setToast("Download not available for this document.");
-      setTimeout(() => setToast(null), 3000);
-    }
-  }
 
   return (
-    <DashboardLayout user={mockUser}>
+    <DashboardLayout>
       <div className="space-y-5 animate-fade-in">
-        {/* Header */}
         <div>
           <h2
             className="text-xl font-bold text-slate-900"
@@ -92,14 +103,17 @@ export default function DocumentsPage() {
             Documents
           </h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            {filtered.length} document{filtered.length !== 1 ? "s" : ""} found
+            {error ? "—" : `${total} document${total !== 1 ? "s" : ""} found`}
           </p>
         </div>
-
-        {/* Search & Filters */}
+        {error && (
+          <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+            <AlertCircle size={14} />
+            {error}
+          </div>
+        )}
         <Card className="p-4">
           <div className="flex flex-col sm:flex-row gap-3">
-            {/* Search */}
             <div className="relative flex-1">
               <Search
                 size={15}
@@ -112,18 +126,12 @@ export default function DocumentsPage() {
                 className="w-full pl-10 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
               />
             </div>
-
-            {/* Category Tabs */}
             <div className="flex gap-1.5 flex-wrap">
               {CATEGORIES.map((c) => (
                 <button
                   key={c}
                   onClick={() => setCategory(c)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${
-                    category === c
-                      ? "bg-indigo-600 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${category === c ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                 >
                   {categoryLabels[c] || c}
                 </button>
@@ -131,20 +139,19 @@ export default function DocumentsPage() {
             </div>
           </div>
         </Card>
-
-        {/* Document Grid */}
-        {filtered.length === 0 ? (
+        {docs.length === 0 ? (
           <Card className="p-8">
             <EmptyState
               icon={<AlertCircle size={24} />}
               title="No documents found"
-              description="Try adjusting your search or filter criteria."
+              description="Try adjusting your search or filter."
             />
           </Card>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((doc) => {
-              const style = TYPE_COLORS[doc.type] || TYPE_COLORS.notice;
+            {docs.map((doc: any) => {
+              const style =
+                TYPE_COLORS[doc.category?.toLowerCase()] || TYPE_COLORS.notice;
               const Icon = style.icon;
               return (
                 <Card key={doc.id} hover className="p-5 flex flex-col gap-4">
@@ -157,39 +164,50 @@ export default function DocumentsPage() {
                     <span
                       className={`text-[11px] font-semibold px-2 py-1 rounded-lg ${style.bg} ${style.text}`}
                     >
-                      {categoryLabels[doc.type] || doc.type}
+                      {categoryLabels[doc.category?.toLowerCase()] ||
+                        doc.category}
                     </span>
                   </div>
-
                   <div className="flex-1">
                     <h3 className="text-sm font-semibold text-slate-800 leading-snug mb-1">
                       {doc.title}
                     </h3>
-                    <p className="text-xs text-slate-400">{doc.department}</p>
+                    <p className="text-xs text-slate-400">
+                      By {doc.uploadedBy?.user?.fullName}
+                    </p>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      By {doc.uploadedBy} ·{" "}
-                      {new Date(doc.uploadedAt).toLocaleDateString("en-IN", {
+                      {new Date(doc.createdAt).toLocaleDateString("en-IN", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
                       })}
                     </p>
-                    {doc.fileSize && (
-                      <p className="text-xs text-slate-300 mt-0.5">
-                        {doc.fileSize}
-                      </p>
-                    )}
                   </div>
-
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleOpen(doc.url)}
+                      onClick={() => {
+                        if (!doc.fileUrl) {
+                          setToast("Download not available.");
+                          setTimeout(() => setToast(null), 3000);
+                          return;
+                        }
+
+                        const link = document.createElement("a");
+                        link.href = doc.fileUrl;
+                        link.download = `${doc.title}.pdf`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-xl hover:bg-indigo-100 transition-colors"
                     >
-                      <Download size={13} /> Download
+                      <Download size={13} />
+                      Download
                     </button>
                     <button
-                      onClick={() => handleOpen(doc.url)}
+                      onClick={() =>
+                        doc.fileUrl && window.open(doc.fileUrl, "_blank")
+                      }
                       className="w-9 h-9 flex items-center justify-center bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-colors"
                     >
                       <ExternalLink size={13} />
@@ -201,10 +219,8 @@ export default function DocumentsPage() {
           </div>
         )}
       </div>
-
-      {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg z-50 animate-slide-up">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg z-50">
           {toast}
         </div>
       )}

@@ -2,7 +2,7 @@ import { prisma } from "../lib/prisma.js";
 import ApiError from "../utils/api-error.js";
 import ApiResponse from "../utils/api-response.js";
 import { AsyncHandler } from "../utils/async-handler.js";
-import { uploadFileToCloudinary } from "../lib/cloudinary.js";
+import { uploadPdfToCloudinary } from "../lib/cloudinary.js";
 
 /**
  * @route POST /document/
@@ -30,10 +30,11 @@ export const uploadDocument = AsyncHandler(async (req: any, res: any) => {
     return res.status(404).json(new ApiError(404, "Admin not found"));
   }
 
-  const cloudinaryResult: any = await uploadFileToCloudinary(
+  const cloudinaryResult = (await uploadPdfToCloudinary(
     req.file.buffer,
-    "ERP_Documents"
-  );
+    "ERP_Documents",
+    req.file.originalname
+  )) as any;
 
   const document = await prisma.document.create({
     data: {
