@@ -285,14 +285,7 @@ export default function LandingPage() {
   return (
     <>
       {/* ── Global keyframes ── */}
-      <style>{`
-        @keyframes voiceRingLP { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.7);opacity:0} }
-        @keyframes voiceBarLP  { from{transform:scaleY(0.4)} to{transform:scaleY(1.5)} }
-        @keyframes spinLP      { to{transform:rotate(360deg)} }
-        @keyframes fadeUpLP    { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes voiceDotLP  { 0%,100%{opacity:0.3;transform:translateY(0)} 50%{opacity:1;transform:translateY(-3px)} }
-        @keyframes glowLP      { 0%,100%{box-shadow:0 0 20px 4px rgba(59,130,246,0.3)} 50%{box-shadow:0 0 40px 12px rgba(59,130,246,0.5)} }
-      `}</style>
+      <style>{` @keyframes voiceRingLP { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.7);opacity:0} } @keyframes voiceBarLP { from{transform:scaleY(0.4)} to{transform:scaleY(1.5)} } @keyframes spinLP { to{transform:rotate(360deg)} } @keyframes fadeUpLP { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} } @keyframes voiceDotLP { 0%,100%{opacity:0.3;transform:translateY(0)} 50%{opacity:1;transform:translateY(-3px)} } @keyframes glowLP { 0%,100%{box-shadow:0 0 20px 4px rgba(59,130,246,0.3)} 50%{box-shadow:0 0 40px 12px rgba(59,130,246,0.5)} } @keyframes bounceTyping { 0%, 80%, 100% { transform: translateY(0); opacity: 0.35; } 40% { transform: translateY(-5px); opacity: 1; } } `}</style>
 
       <div className="min-h-screen bg-white">
         {/* ══════════════════ NAVBAR ══════════════════ */}
@@ -1104,11 +1097,14 @@ export default function LandingPage() {
                             "radial-gradient(circle at 32% 30%,#93c5fd,#1d4ed8)",
                         }}
                       />
-                      <div className="bg-slate-50 border border-slate-100 rounded-tl-sm rounded-tr-2xl rounded-b-2xl px-4 py-3 flex gap-1 items-center">
+                      <div className="bg-slate-50 border border-slate-100 rounded-tl-sm rounded-tr-2xl rounded-b-2xl px-4 py-3 flex gap-1.5 items-end">
                         {[0, 1, 2].map((i) => (
                           <div
                             key={i}
-                            className="w-1.5 h-1.5 bg-slate-400 rounded-full"
+                            className="w-2 h-2 bg-slate-400 rounded-full"
+                            style={{
+                              animation: `bounceTyping 1s ${i * 0.15}s ease-in-out infinite`,
+                            }}
                           />
                         ))}
                       </div>
