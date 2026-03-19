@@ -18,6 +18,7 @@ const ENV = {
   QDRANT_API_KEY: process.env.QDRANT_API_KEY!,
   QDRANT_URL: process.env.QDRANT_URL!,
   QDRANT_COLLECTION: process.env.QDRANT_COLLECTION!,
+  HF_TOKEN: process.env.HF_TOKEN!,
 };
 
 export { ENV };
