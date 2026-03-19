@@ -18,6 +18,10 @@ const ENV = {
   QDRANT_API_KEY: process.env.QDRANT_API_KEY!,
   QDRANT_URL: process.env.QDRANT_URL!,
   QDRANT_COLLECTION: process.env.QDRANT_COLLECTION!,
+  HF_TOKEN: process.env.HF_TOKEN!,
+  ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY!,
+  ELEVENLABS_VOICE_ID: process.env.ELEVENLABS_VOICE_ID!,
+  ELEVENLABS_MODEL_ID: process.env.ELEVENLABS_MODEL_ID!,
 };
 
 export { ENV };

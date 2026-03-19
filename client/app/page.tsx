@@ -1,4 +1,7 @@
 "use client";
+import { useVoiceChat } from "@/hooks/use-voice";
+import { API_BASE_URL } from "@/lib/constants";
+import axios from "axios";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   GraduationCap,
@@ -28,8 +31,6 @@ import {
   BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { API_BASE_URL } from "@/lib/constants";
-import axios from "axios";
 
 /* ─── Types ─────────────────────────────────── */
 interface Message {
@@ -38,18 +39,7 @@ interface Message {
   content: string;
 }
 
-const getBotResponse = async (msg: string) => {
-  const response = await axios.post(
-    `${API_BASE_URL}/chat`,
-    { message: msg },
-    { withCredentials: true }
-  );
-  const botReply = response?.data?.data?.output || "No response received";
-  // console.log(botReply);
-
-  return botReply;
-};
-
+/* ─── Data ──────────────────────────────────── */
 const FEATURES = [
   {
     icon: Bot,
@@ -178,7 +168,6 @@ export default function LandingPage() {
   const [chatMounted, setChatMounted] = useState(false);
   const [chatVisible, setChatVisible] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [listening, setListening] = useState(false);
   const [lang, setLang] = useState("en");
   const [langOpen, setLangOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
@@ -186,6 +175,45 @@ export default function LandingPage() {
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const idRef = useRef(1);
+
+  // ── BCP-47 map for voice ─────────────────────────────────────────────────
+  const LANG_BCP47: Record<string, string> = {
+    en: "en-IN",
+    hi: "hi-IN",
+    or: "or-IN",
+    bn: "bn-IN",
+    te: "te-IN",
+  };
+
+  // ── Voice integration ────────────────────────────────────────────────────
+  const {
+    voiceState,
+    transcript: vTranscript,
+    toggleVoice,
+    cancelVoice,
+  } = useVoiceChat({
+    language: LANG_BCP47[lang] ?? "en-IN",
+    onResult: ({ transcript: t, agentResponse: a }) => {
+      if (t)
+        setMsgs((p) => [
+          ...p,
+          { id: String(idRef.current++), role: "user", content: t },
+        ]);
+      if (a)
+        setMsgs((p) => [
+          ...p,
+          { id: String(idRef.current++), role: "bot", content: a },
+        ]);
+    },
+    onError: (msg) => {
+      setMsgs((p) => [
+        ...p,
+        { id: String(idRef.current++), role: "bot", content: `⚠️ ${msg}` },
+      ]);
+    },
+  });
+
+  const isVoiceActive = voiceState !== "idle";
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 10);
@@ -216,59 +244,48 @@ export default function LandingPage() {
   const send = useCallback(
     async (text?: string) => {
       const msg = (text ?? input).trim();
-      if (!msg) return;
-
+      if (!msg || typing) return;
       setMsgs((p) => [
         ...p,
-        {
-          id: String(idRef.current++),
-          role: "user",
-          content: msg,
-        },
+        { id: String(idRef.current++), role: "user", content: msg },
       ]);
-
       setInput("");
       setTyping(true);
-
       try {
-        const botReply = await getBotResponse(msg);
-
-        setTimeout(
-          () => {
-            setTyping(false);
-
-            setMsgs((p) => [
-              ...p,
-              {
-                id: String(idRef.current++),
-                role: "bot",
-                content: botReply || "No response received",
-              },
-            ]);
-          },
-          900 + Math.random() * 600
+        const { data } = await axios.post(
+          `${API_BASE_URL}/chat`,
+          { message: msg, language: lang },
+          { withCredentials: true }
         );
-      } catch (error) {
-        setTyping(false);
-
+        const output: string = data?.data?.output ?? "";
+        if (output) {
+          setMsgs((p) => [
+            ...p,
+            { id: String(idRef.current++), role: "bot", content: output },
+          ]);
+        }
+      } catch (err: any) {
+        const errMsg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Network error. Please try again.";
         setMsgs((p) => [
           ...p,
-          {
-            id: String(idRef.current++),
-            role: "bot",
-            content: "Something went wrong.",
-          },
+          { id: String(idRef.current++), role: "bot", content: errMsg },
         ]);
+      } finally {
+        setTyping(false);
       }
     },
-    [input]
+    [input, lang, typing]
   );
 
   const curLang = LANGS.find((l) => l.code === lang)!;
 
   return (
     <>
-      {/* ── Global keyframes (only what Tailwind can't do) ── */}
+      {/* ── Global keyframes ── */}
+      <style>{` @keyframes voiceRingLP { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.7);opacity:0} } @keyframes voiceBarLP { from{transform:scaleY(0.4)} to{transform:scaleY(1.5)} } @keyframes spinLP { to{transform:rotate(360deg)} } @keyframes fadeUpLP { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} } @keyframes voiceDotLP { 0%,100%{opacity:0.3;transform:translateY(0)} 50%{opacity:1;transform:translateY(-3px)} } @keyframes glowLP { 0%,100%{box-shadow:0 0 20px 4px rgba(59,130,246,0.3)} 50%{box-shadow:0 0 40px 12px rgba(59,130,246,0.5)} } @keyframes bounceTyping { 0%, 80%, 100% { transform: translateY(0); opacity: 0.35; } 40% { transform: translateY(-5px); opacity: 1; } } `}</style>
 
       <div className="min-h-screen bg-white">
         {/* ══════════════════ NAVBAR ══════════════════ */}
@@ -501,10 +518,6 @@ export default function LandingPage() {
                 <div
                   key={f.title}
                   className="relative bg-white border border-slate-200 rounded-2xl p-6 hover:-translate-y-1 hover:shadow-lg hover:border-indigo-200 transition-all duration-200"
-                  style={{
-                    animationDelay: `${i * 0.07}s`,
-                    animationFillMode: "both",
-                  }}
                 >
                   {f.badge && (
                     <span className="absolute top-4 right-4 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
@@ -829,189 +842,407 @@ export default function LandingPage() {
             CHAT WIDGET
         ══════════════════════════════════════════════════ */}
         <div id="chatbot">
-          {/* Panel */}
           {chatMounted && (
             <div
-              className={`chat-panel ${chatVisible ? "chat-shown" : "chat-hidden"}
-              fixed bottom-[88px] right-4 sm:right-5 z-[100]
-              w-[calc(100vw-32px)] sm:w-[370px]
-              bg-white rounded-[22px] border border-slate-200
-              flex flex-col overflow-hidden
-              shadow-2xl shadow-slate-900/15`}
               style={{ maxHeight: "calc(100vh - 110px)" }}
+              className={`chat-panel ${chatVisible ? "chat-shown" : "chat-hidden"}
+                fixed bottom-[88px] right-4 sm:right-5 z-[100]
+                w-[calc(100vw-32px)] sm:w-[370px]
+                bg-white rounded-[22px] border border-slate-200
+                flex flex-col overflow-hidden
+                shadow-2xl shadow-slate-900/15`}
             >
-              {/* ─ Header (blue gradient) ─ */}
-              <div
-                className="shrink-0 px-4 pt-5 pb-0"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%)",
-                }}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  {/* Orb + name */}
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="orb w-12 h-12 rounded-full shrink-0"
-                      style={{
-                        background:
-                          "radial-gradient(circle at 32% 30%, #93c5fd 0%, #3b82f6 35%, #1d4ed8 65%, #1e1b4b 100%)",
-                      }}
-                    />
-                    <div>
-                      <div className="text-white font-bold text-[15px] leading-snug">
-                        UniERP Assistant
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <div className="w-2 h-2 bg-emerald-400 rounded-full" />
-                        <span className="text-white/55 text-[12px]">
-                          Online · Multilingual AI
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Controls */}
-                  <div className="flex items-center gap-2">
-                    {/* Lang picker */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setLangOpen((v) => !v)}
-                        className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl px-3 py-1.5 text-[12px] font-semibold transition-all cursor-pointer"
+              {/* ── Inner relative wrapper so voice overlay (absolute) anchors correctly ── */}
+              <div className="relative flex flex-col flex-1 min-h-0 rounded-[22px] overflow-hidden">
+                {/* ── Voice overlay ── */}
+                {isVoiceActive && (
+                  <div
+                    className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/96 backdrop-blur-sm rounded-[22px]"
+                    style={{ animation: "fadeUpLP 0.2s ease both" }}
+                  >
+                    <div className="relative w-20 h-20 mb-4">
+                      {(voiceState === "recording" ||
+                        voiceState === "playing") && (
+                        <>
+                          <span
+                            className="absolute inset-[-8px] rounded-full border border-blue-300/40"
+                            style={{
+                              animation: "voiceRingLP 1.5s ease-out infinite",
+                            }}
+                          />
+                          <span
+                            className="absolute inset-[-8px] rounded-full border border-blue-300/20"
+                            style={{
+                              animation:
+                                "voiceRingLP 1.5s 0.5s ease-out infinite",
+                            }}
+                          />
+                        </>
+                      )}
+                      <div
+                        className="w-20 h-20 rounded-full flex items-center justify-center"
+                        style={{
+                          background:
+                            "radial-gradient(circle at 32% 30%,#93c5fd 0%,#3b82f6 35%,#1d4ed8 65%,#1e1b4b 100%)",
+                          animation:
+                            voiceState === "playing"
+                              ? "glowLP 2s ease-in-out infinite"
+                              : "none",
+                        }}
                       >
-                        <span className="text-[13px]">{curLang.flag}</span>
-                        {curLang.label}
-                        <ChevronDown
-                          size={9}
-                          className={`transition-transform duration-200 ${langOpen ? "rotate-180" : ""}`}
-                        />
-                      </button>
-                      {langOpen && (
-                        <div className="absolute right-0 top-[calc(100%+8px)] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden min-w-[140px] z-20">
-                          {LANGS.map((l) => (
-                            <button
-                              key={l.code}
-                              onClick={() => {
-                                setLang(l.code);
-                                setLangOpen(false);
+                        <div className="flex items-center gap-[3px]">
+                          {[4, 7, 11, 9, 13, 9, 11, 7, 4].map((h, i) => (
+                            <span
+                              key={i}
+                              className="rounded-full bg-white/80"
+                              style={{
+                                width: "2px",
+                                height:
+                                  voiceState === "recording" ||
+                                  voiceState === "playing"
+                                    ? `${h}px`
+                                    : "3px",
+                                transition: "height 0.3s ease",
+                                animation:
+                                  voiceState === "recording" ||
+                                  voiceState === "playing"
+                                    ? `voiceBarLP ${0.45 + i * 0.06}s ${i * 0.07}s ease-in-out infinite alternate`
+                                    : "none",
                               }}
-                              className={`w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2.5 transition-colors cursor-pointer
-                                ${l.code === lang ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"}`}
-                            >
-                              <span className="text-[15px]">{l.flag}</span>
-                              {l.label}
-                            </button>
+                            />
                           ))}
                         </div>
-                      )}
+                      </div>
                     </div>
-                    {/* Close */}
-                    <button
-                      onClick={() => setChatOpen(false)}
-                      className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/60 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                    <p
+                      className={`text-sm font-semibold mb-2 ${voiceState === "recording" ? "text-red-500" : voiceState === "processing" ? "text-indigo-500" : voiceState === "playing" ? "text-emerald-500" : "text-red-400"}`}
                     >
-                      <X size={14} />
-                    </button>
+                      {voiceState === "recording"
+                        ? "Listening…"
+                        : voiceState === "processing"
+                          ? "Thinking…"
+                          : voiceState === "playing"
+                            ? "Speaking…"
+                            : "Error"}
+                    </p>
+                    {vTranscript && (
+                      <p className="text-xs text-slate-500 max-w-[220px] text-center px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100 mb-2">
+                        "{vTranscript}"
+                      </p>
+                    )}
+                    {voiceState === "processing" && (
+                      <div className="flex gap-1.5 mb-3">
+                        {[0, 1, 2].map((i) => (
+                          <span
+                            key={i}
+                            className="w-1.5 h-1.5 bg-indigo-400 rounded-full"
+                            style={{
+                              animation: `voiceDotLP 1.2s ${i * 0.2}s ease-in-out infinite`,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {voiceState !== "error" && (
+                      <button
+                        onClick={cancelVoice}
+                        className="mt-2 text-[11px] text-slate-400 hover:text-slate-600 px-3 py-1 rounded-lg hover:bg-slate-100"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Header (blue gradient) ── */}
+                <div
+                  className="shrink-0 px-4 pt-5 pb-0"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%)",
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="orb w-12 h-12 rounded-full shrink-0"
+                        style={{
+                          background:
+                            "radial-gradient(circle at 32% 30%, #93c5fd 0%, #3b82f6 35%, #1d4ed8 65%, #1e1b4b 100%)",
+                          animation: isVoiceActive
+                            ? "glowLP 2s ease-in-out infinite"
+                            : "none",
+                        }}
+                      />
+                      <div>
+                        <div className="text-white font-bold text-[15px] leading-snug">
+                          UniERP Assistant
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <div
+                            className={`w-2 h-2 rounded-full transition-colors duration-300
+                            ${voiceState === "recording" ? "bg-red-400" : voiceState === "processing" ? "bg-indigo-300" : voiceState === "playing" ? "bg-emerald-300" : "bg-emerald-400"}`}
+                            style={{
+                              animation: isVoiceActive
+                                ? "voiceDotLP 1.2s ease-in-out infinite"
+                                : "none",
+                            }}
+                          />
+                          <span className="text-white/55 text-[12px]">
+                            {voiceState === "recording"
+                              ? "Listening…"
+                              : voiceState === "processing"
+                                ? "Thinking…"
+                                : voiceState === "playing"
+                                  ? "Speaking…"
+                                  : "Online · Multilingual AI"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <button
+                          onClick={() => setLangOpen((v) => !v)}
+                          className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl px-3 py-1.5 text-[12px] font-semibold transition-all cursor-pointer"
+                        >
+                          <span className="text-[13px]">{curLang.flag}</span>
+                          {curLang.label}
+                          <ChevronDown
+                            size={9}
+                            className={`transition-transform duration-200 ${langOpen ? "rotate-180" : ""}`}
+                          />
+                        </button>
+                        {langOpen && (
+                          <div className="absolute right-0 top-[calc(100%+8px)] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden min-w-[140px] z-20">
+                            {LANGS.map((l) => (
+                              <button
+                                key={l.code}
+                                onClick={() => {
+                                  setLang(l.code);
+                                  setLangOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2.5 transition-colors cursor-pointer
+                                  ${l.code === lang ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"}`}
+                              >
+                                <span className="text-[15px]">{l.flag}</span>
+                                {l.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setChatOpen(false)}
+                        className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/60 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  {/* Quick chips */}
+                  <div className="chips flex gap-2 overflow-x-auto pb-4">
+                    {CHIPS.map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => send(q)}
+                        disabled={isVoiceActive}
+                        className={`shrink-0 text-[12px] font-medium text-white/80 bg-white/10 hover:bg-white/20 border border-white/18 rounded-full px-3.5 py-1.5 whitespace-nowrap transition-all cursor-pointer
+                          ${isVoiceActive ? "opacity-40 cursor-not-allowed" : ""}`}
+                      >
+                        {q}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Quick chips */}
-                <div className="chips flex gap-2 overflow-x-auto pb-4">
-                  {CHIPS.map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => send(q)}
-                      className="shrink-0 text-[12px] font-medium text-white/80 bg-white/10 hover:bg-white/20 border border-white/18 rounded-full px-3.5 py-1.5 whitespace-nowrap transition-all cursor-pointer"
+                {/* ── Messages ── */}
+                <div
+                  ref={bodyRef}
+                  className="msgs flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3"
+                  style={{ minHeight: 180, maxHeight: 300 }}
+                >
+                  {msgs.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`flex gap-2 items-end ${m.role === "user" ? "flex-row-reverse" : ""}`}
                     >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ─ Messages ─ */}
-              <div
-                ref={bodyRef}
-                className="msgs flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3"
-                style={{ minHeight: 180, maxHeight: 300 }}
-              >
-                {msgs.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`flex gap-2 items-end ${m.role === "user" ? "flex-row-reverse" : ""}`}
-                  >
-                    {m.role === "bot" && (
+                      {m.role === "bot" && (
+                        <div
+                          className="w-7 h-7 rounded-full shrink-0 mb-0.5"
+                          style={{
+                            background:
+                              "radial-gradient(circle at 32% 30%,#93c5fd,#1d4ed8)",
+                          }}
+                        />
+                      )}
                       <div
-                        className="w-7 h-7 rounded-full shrink-0 mb-0.5"
+                        className={`max-w-[78%] text-[13px] leading-relaxed px-3.5 py-2.5
+                        ${
+                          m.role === "bot"
+                            ? "bg-slate-50 border border-slate-100 text-slate-800 rounded-tl-sm rounded-tr-2xl rounded-b-2xl"
+                            : "bg-slate-900 text-white rounded-tr-sm rounded-tl-2xl rounded-b-2xl"
+                        }`}
+                      >
+                        {m.content}
+                      </div>
+                    </div>
+                  ))}
+                  {typing && (
+                    <div className="flex gap-2 items-end">
+                      <div
+                        className="w-7 h-7 rounded-full shrink-0"
                         style={{
                           background:
                             "radial-gradient(circle at 32% 30%,#93c5fd,#1d4ed8)",
                         }}
                       />
-                    )}
-                    <div
-                      className={`max-w-[78%] text-[13px] leading-relaxed px-3.5 py-2.5
-                      ${
-                        m.role === "bot"
-                          ? "bg-slate-50 border border-slate-100 text-slate-800 rounded-tl-sm rounded-tr-2xl rounded-b-2xl"
-                          : "bg-slate-900 text-white rounded-tr-sm rounded-tl-2xl rounded-b-2xl"
-                      }`}
-                    >
-                      {m.content}
+                      <div className="bg-slate-50 border border-slate-100 rounded-tl-sm rounded-tr-2xl rounded-b-2xl px-4 py-3 flex gap-1.5 items-end">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className="w-2 h-2 bg-slate-400 rounded-full"
+                            style={{
+                              animation: `bounceTyping 1s ${i * 0.15}s ease-in-out infinite`,
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-
-                {typing && (
-                  <div className="flex gap-2 items-end">
-                    <div
-                      className="w-7 h-7 rounded-full shrink-0"
-                      style={{
-                        background:
-                          "radial-gradient(circle at 32% 30%,#93c5fd,#1d4ed8)",
-                      }}
-                    />
-                    <div className="bg-slate-50 border border-slate-100 rounded-tl-sm rounded-tr-2xl rounded-b-2xl px-4 py-3 flex gap-1 items-center">
-                      <div className="d1 w-1.5 h-1.5 bg-slate-400 rounded-full" />
-                      <div className="d2 w-1.5 h-1.5 bg-slate-400 rounded-full" />
-                      <div className="d3 w-1.5 h-1.5 bg-slate-400 rounded-full" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* ─ Input ─ */}
-              <div className="px-4 pb-4 pt-2 shrink-0 border-t border-slate-100">
-                <div className="flex items-center gap-2 bg-slate-50 border-[1.5px] border-slate-200 focus-within:border-blue-400 rounded-2xl px-3.5 py-2 transition-colors">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && send()}
-                    placeholder="Ask anything about NIST…"
-                    className="flex-1 text-[13px] text-slate-800 bg-transparent border-none outline-none placeholder-slate-400 caret-blue-600"
-                  />
-                  <button
-                    onClick={() => setListening((v) => !v)}
-                    className={`w-8 h-8 rounded-xl border-none flex items-center justify-center transition-all cursor-pointer shrink-0
-                      ${listening ? "bg-red-100 text-red-500" : "bg-transparent text-slate-400 hover:text-slate-600"}`}
-                  >
-                    {listening ? <MicOff size={13} /> : <Mic size={13} />}
-                  </button>
-                  <button
-                    onClick={() => send()}
-                    disabled={!input.trim()}
-                    className={`w-8 h-8 rounded-xl border-none flex items-center justify-center transition-all cursor-pointer shrink-0
-                      ${input.trim() ? "bg-slate-900 hover:bg-blue-700 text-white" : "bg-slate-200 text-white cursor-default"}`}
-                  >
-                    <Send size={12} />
-                  </button>
+                  )}
                 </div>
-                <p className="text-center mt-2 text-[10px] text-slate-300">
-                  UniERP AI · Verify important info with staff
-                </p>
+
+                {/* ── Input ── */}
+                <div className="px-4 pb-4 pt-2 shrink-0 border-t border-slate-100">
+                  {voiceState === "recording" && (
+                    <div className="flex items-center gap-2 mb-1.5 px-0.5">
+                      <span
+                        className="w-2 h-2 bg-red-500 rounded-full"
+                        style={{
+                          animation: "voiceDotLP 1s ease-in-out infinite",
+                        }}
+                      />
+                      <span className="text-[11px] text-red-500 font-medium truncate">
+                        {vTranscript
+                          ? `"${vTranscript}"`
+                          : `Listening in ${curLang.label}…`}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 bg-slate-50 border-[1.5px] border-slate-200 focus-within:border-blue-400 rounded-2xl px-3.5 py-2 transition-colors">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && send()}
+                      disabled={isVoiceActive}
+                      placeholder={
+                        isVoiceActive
+                          ? "Voice mode active…"
+                          : "Ask anything about NIST…"
+                      }
+                      className="flex-1 text-[13px] text-slate-800 bg-transparent border-none outline-none placeholder-slate-400 caret-blue-600 disabled:opacity-40"
+                    />
+                    {/* ── Mic button ── */}
+                    <button
+                      onClick={toggleVoice}
+                      title={
+                        voiceState === "recording"
+                          ? "Tap to send"
+                          : voiceState === "playing"
+                            ? "Tap to stop"
+                            : "Voice input"
+                      }
+                      style={{ position: "relative" }}
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0
+                        ${
+                          voiceState === "recording"
+                            ? "bg-red-500 text-white"
+                            : voiceState === "processing"
+                              ? "bg-indigo-500 text-white"
+                              : voiceState === "playing"
+                                ? "bg-emerald-500 text-white"
+                                : voiceState === "error"
+                                  ? "bg-red-400 text-white"
+                                  : "bg-transparent text-slate-400 hover:text-slate-600"
+                        }`}
+                    >
+                      {voiceState === "recording" && (
+                        <>
+                          <span
+                            className="absolute inset-0 rounded-xl bg-red-500 opacity-40"
+                            style={{
+                              animation: "voiceRingLP 1.2s ease-out infinite",
+                            }}
+                          />
+                          <span
+                            className="absolute inset-0 rounded-xl bg-red-500 opacity-20"
+                            style={{
+                              animation:
+                                "voiceRingLP 1.2s 0.4s ease-out infinite",
+                            }}
+                          />
+                        </>
+                      )}
+                      {voiceState === "processing" && (
+                        <span
+                          className="absolute inset-[-3px] rounded-xl border-2 border-indigo-400 border-t-transparent"
+                          style={{ animation: "spinLP 0.8s linear infinite" }}
+                        />
+                      )}
+                      {voiceState === "recording" ? (
+                        <span className="w-2.5 h-2.5 bg-white rounded-sm" />
+                      ) : voiceState === "processing" ? (
+                        <span className="flex gap-[2px] items-end h-3">
+                          {[0, 1, 2].map((i) => (
+                            <span
+                              key={i}
+                              className="w-[2px] rounded-full bg-white"
+                              style={{
+                                height: "5px",
+                                animation: `voiceBarLP 0.7s ${i * 0.15}s ease-in-out infinite alternate`,
+                              }}
+                            />
+                          ))}
+                        </span>
+                      ) : voiceState === "playing" ? (
+                        <span className="flex gap-[2px] items-end h-3">
+                          {[3, 5, 8, 5, 3].map((h, i) => (
+                            <span
+                              key={i}
+                              className="w-[2px] rounded-full bg-white"
+                              style={{
+                                height: `${h}px`,
+                                animation: `voiceBarLP 0.5s ${i * 0.1}s ease-in-out infinite alternate`,
+                              }}
+                            />
+                          ))}
+                        </span>
+                      ) : voiceState === "error" ? (
+                        <span className="text-white text-[10px] font-bold">
+                          !
+                        </span>
+                      ) : (
+                        <Mic size={13} />
+                      )}
+                    </button>
+                    {/* Send */}
+                    <button
+                      onClick={() => send()}
+                      disabled={!input.trim() || isVoiceActive}
+                      className={`w-8 h-8 rounded-xl border-none flex items-center justify-center transition-all cursor-pointer shrink-0
+                        ${input.trim() && !isVoiceActive ? "bg-slate-900 hover:bg-blue-700 text-white" : "bg-slate-200 text-white cursor-default"}`}
+                    >
+                      <Send size={12} />
+                    </button>
+                  </div>
+                  <p className="text-center mt-2 text-[10px] text-slate-300">
+                    UniERP AI · Verify important info with staff
+                  </p>
+                </div>
               </div>
+              {/* end inner relative wrapper */}
             </div>
           )}
 

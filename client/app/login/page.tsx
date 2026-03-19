@@ -563,55 +563,6 @@ function LoginForm() {
             Back to home
           </Link>
         </p>
-
-        {!forgotMode && (
-          <div className="mt-4 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <FlaskConical size={14} className="text-amber-500" />
-                <span className="text-xs font-semibold text-slate-700">
-                  Demo Credentials
-                </span>
-              </div>
-              <span className="text-[10px] font-medium uppercase tracking-wide bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">
-                Testing Only
-              </span>
-            </div>
-            {DEMO_CREDENTIALS.map((cred) => (
-              <div
-                key={cred.role}
-                onClick={() => fillCredentials(cred)}
-                className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 cursor-pointer group"
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase",
-                      cred.role === "Student"
-                        ? "bg-indigo-100 text-indigo-700"
-                        : cred.role === "Admin"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-purple-100 text-purple-700"
-                    )}
-                  >
-                    {cred.role}
-                  </span>
-                  <div>
-                    <p className="text-xs text-slate-600 font-mono">
-                      {cred.email}
-                    </p>
-                    <p className="text-xs text-slate-300 font-mono group-hover:text-slate-400 transition-colors">
-                      {cred.password}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs text-indigo-400 font-medium group-hover:text-indigo-700 transition-colors">
-                  Use →
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
