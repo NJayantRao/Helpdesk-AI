@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import axios from "axios";
 import { MessageCircle, X, Send, ChevronDown } from "lucide-react";
 import { API_BASE_URL } from "@/lib/constants";
-import { useVoiceChat, VoiceState } from "@/hooks/useVoiceChat";
+import { useVoiceChat, VoiceState } from "@/hooks/use-voice";
 
 // ── Config ─────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,22 @@ interface Message {
   content: string;
 }
 
+// ── Keyframes ──────────────────────────────────────────────────────────────
+// All animation delays are embedded in the shorthand to avoid the
+// React "shorthand + longhand conflict" warning.
+const VOICE_STYLES = `
+  @keyframes voiceRing    { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.6);opacity:0} }
+  @keyframes voiceBar     { from{transform:scaleY(0.4)} to{transform:scaleY(1.4)} }
+  @keyframes voiceDot     { 0%,100%{opacity:0.3;transform:translateY(0)} 50%{opacity:1;transform:translateY(-3px)} }
+  @keyframes fadeUp       { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes glowBreathe  { 0%,100%{box-shadow:0 0 20px 4px rgba(59,130,246,0.3)} 50%{box-shadow:0 0 40px 12px rgba(59,130,246,0.5)} }
+  @keyframes spin         { to{transform:rotate(360deg)} }
+  @keyframes td           { 0%,80%,100%{transform:translateY(0);opacity:0.4} 40%{transform:translateY(-5px);opacity:1} }
+  .d1 { animation: td 1.1s ease-in-out infinite; }
+  .d2 { animation: td 1.1s 0.16s ease-in-out infinite; }
+  .d3 { animation: td 1.1s 0.32s ease-in-out infinite; }
+`;
+
 // ── Markdown renderer ──────────────────────────────────────────────────────
 
 function renderMarkdown(text: string): string {
@@ -44,7 +60,7 @@ function renderMarkdown(text: string): string {
     .replace(/\n{2,}/g, "<br/>");
 }
 
-// ── Voice mic button with state-based animations ───────────────────────────
+// ── VoiceMicButton ─────────────────────────────────────────────────────────
 
 function VoiceMicButton({
   voiceState,
@@ -84,7 +100,7 @@ function VoiceMicButton({
                   : "bg-transparent text-slate-400 hover:text-slate-600"
         }`}
     >
-      {/* Recording: pulsing red ring */}
+      {/* Pulsing rings — delay embedded in shorthand, no animationDelay prop */}
       {isRecording && (
         <>
           <span
@@ -93,15 +109,12 @@ function VoiceMicButton({
           />
           <span
             className="absolute inset-0 rounded-xl bg-red-500 opacity-20"
-            style={{
-              animation: "voiceRing 1.2s ease-out infinite",
-              animationDelay: "0.4s",
-            }}
+            style={{ animation: "voiceRing 1.2s 0.4s ease-out infinite" }}
           />
         </>
       )}
 
-      {/* Processing: spinning ring */}
+      {/* Spinning ring when processing */}
       {isProcessing && (
         <span
           className="absolute inset-[-3px] rounded-xl border-2 border-indigo-400 border-t-transparent"
@@ -109,12 +122,10 @@ function VoiceMicButton({
         />
       )}
 
-      {/* Icon */}
+      {/* Icons */}
       {isRecording ? (
-        // Square stop icon
         <span className="w-3 h-3 bg-white rounded-sm" />
       ) : isProcessing ? (
-        // Three bouncing dots
         <span className="flex gap-[3px] items-end h-3">
           {[0, 1, 2].map((i) => (
             <span
@@ -122,14 +133,12 @@ function VoiceMicButton({
               className="w-[3px] rounded-full bg-white"
               style={{
                 height: "6px",
-                animation: "voiceBar 0.7s ease-in-out infinite alternate",
-                animationDelay: `${i * 0.15}s`,
+                animation: `voiceBar 0.7s ${i * 0.15}s ease-in-out infinite alternate`,
               }}
             />
           ))}
         </span>
       ) : isPlaying ? (
-        // Soundwave bars
         <span className="flex gap-[2px] items-end h-3.5">
           {[3, 5, 8, 5, 3].map((h, i) => (
             <span
@@ -137,8 +146,7 @@ function VoiceMicButton({
               className="w-[2px] rounded-full bg-white"
               style={{
                 height: `${h}px`,
-                animation: "voiceBar 0.5s ease-in-out infinite alternate",
-                animationDelay: `${i * 0.1}s`,
+                animation: `voiceBar 0.5s ${i * 0.1}s ease-in-out infinite alternate`,
               }}
             />
           ))}
@@ -146,7 +154,6 @@ function VoiceMicButton({
       ) : isError ? (
         <span className="text-white text-[10px] font-bold">!</span>
       ) : (
-        // Default mic SVG
         <svg
           width="13"
           height="13"
@@ -167,7 +174,7 @@ function VoiceMicButton({
   );
 }
 
-// ── Waveform shown while voice is recording or playing ────────────────────
+// ── VoiceWaveform ──────────────────────────────────────────────────────────
 
 function VoiceWaveform({ active }: { active: boolean }) {
   const heights = [3, 6, 9, 7, 11, 7, 9, 6, 3];
@@ -182,10 +189,10 @@ function VoiceWaveform({ active }: { active: boolean }) {
             height: active ? `${h}px` : "3px",
             backgroundColor: active ? "#60a5fa" : "#374151",
             transition: "height 0.3s ease",
+            // Delay embedded in shorthand — no animationDelay prop
             animation: active
-              ? `voiceBar ${0.5 + i * 0.06}s ease-in-out infinite alternate`
+              ? `voiceBar ${0.5 + i * 0.06}s ${i * 0.06}s ease-in-out infinite alternate`
               : "none",
-            animationDelay: `${i * 0.06}s`,
           }}
         />
       ))}
@@ -193,149 +200,196 @@ function VoiceWaveform({ active }: { active: boolean }) {
   );
 }
 
-// ── Voice overlay shown while recording / processing / playing ────────────
+// ── VoiceOverlay ───────────────────────────────────────────────────────────
+// Shows during recording/processing/playing AND persists in "done" state
+// so user can speak again or go back to text UI.
+
+type OverlayState = VoiceState | "done";
 
 function VoiceOverlay({
-  voiceState,
+  overlayState,
   transcript,
   agentResponse,
+  onSpeak,
+  onBack,
   onCancel,
 }: {
-  voiceState: VoiceState;
+  overlayState: OverlayState;
   transcript: string;
   agentResponse: string;
-  onCancel: () => void;
+  onSpeak: () => void; // tap mic to speak again
+  onBack: () => void; // back arrow → return to text UI
+  onCancel: () => void; // cancel during active voice
 }) {
-  if (voiceState === "idle") return null;
+  if (overlayState === "idle") return null;
+
+  const isDone = overlayState === "done";
+  const isActive = overlayState === "recording" || overlayState === "playing";
 
   const label =
-    voiceState === "recording"
+    overlayState === "recording"
       ? "Listening…"
-      : voiceState === "processing"
+      : overlayState === "processing"
         ? "Thinking…"
-        : voiceState === "playing"
+        : overlayState === "playing"
           ? "Speaking…"
-          : "Error";
+          : overlayState === "done"
+            ? "Done"
+            : "Error";
 
   const labelColor =
-    voiceState === "recording"
+    overlayState === "recording"
       ? "text-red-400"
-      : voiceState === "processing"
+      : overlayState === "processing"
         ? "text-indigo-400"
-        : voiceState === "playing"
+        : overlayState === "playing"
           ? "text-emerald-400"
-          : "text-red-400";
+          : overlayState === "done"
+            ? "text-slate-500"
+            : "text-red-400";
 
   return (
     <div
-      className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm rounded-[22px]"
+      className="absolute inset-0 z-10 flex flex-col bg-white/97 backdrop-blur-sm rounded-[22px]"
       style={{ animation: "fadeUp 0.2s ease both" }}
     >
-      {/* Orb */}
-      <div className="relative w-20 h-20 mb-5">
-        {/* Outer ring pulse */}
-        {(voiceState === "recording" || voiceState === "playing") && (
-          <>
-            <span
-              className="absolute inset-[-8px] rounded-full border border-blue-300/40"
-              style={{ animation: "voiceRing 1.5s ease-out infinite" }}
-            />
-            <span
-              className="absolute inset-[-8px] rounded-full border border-blue-300/20"
-              style={{
-                animation: "voiceRing 1.5s ease-out infinite",
-                animationDelay: "0.5s",
-              }}
-            />
-          </>
-        )}
-        {/* Orb itself */}
-        <div
-          className="w-20 h-20 rounded-full flex items-center justify-center"
-          style={{
-            background:
-              "radial-gradient(circle at 32% 30%, #93c5fd 0%, #3b82f6 35%, #1d4ed8 65%, #1e1b4b 100%)",
-            animation:
-              voiceState === "playing"
-                ? "glowBreathe 2s ease-in-out infinite"
-                : "none",
-          }}
+      {/* ── Top bar — back arrow (always visible) ── */}
+      <div className="flex items-center px-4 pt-4 pb-0 shrink-0">
+        <button
+          onClick={onBack}
+          title="Back to text chat"
+          className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 transition-colors group"
         >
-          {/* Waveform inside orb */}
-          <div className="flex items-center gap-[3px]">
-            {[4, 7, 11, 9, 13, 9, 11, 7, 4].map((h, i) => (
+          {/* Left arrow SVG */}
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="transition-transform group-hover:-translate-x-0.5"
+          >
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span className="text-[11px] font-medium">Text chat</span>
+        </button>
+      </div>
+
+      {/* ── Main content — centred ── */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4">
+        {/* Orb */}
+        <div className="relative w-20 h-20 mb-5">
+          {isActive && (
+            <>
+              <span
+                className="absolute inset-[-8px] rounded-full border border-blue-300/40"
+                style={{ animation: "voiceRing 1.5s ease-out infinite" }}
+              />
+              <span
+                className="absolute inset-[-8px] rounded-full border border-blue-300/20"
+                style={{ animation: "voiceRing 1.5s 0.5s ease-out infinite" }}
+              />
+            </>
+          )}
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center"
+            style={{
+              background:
+                "radial-gradient(circle at 32% 30%, #93c5fd 0%, #3b82f6 35%, #1d4ed8 65%, #1e1b4b 100%)",
+              animation:
+                overlayState === "playing"
+                  ? "glowBreathe 2s ease-in-out infinite"
+                  : "none",
+            }}
+          >
+            <div className="flex items-center gap-[3px]">
+              {[4, 7, 11, 9, 13, 9, 11, 7, 4].map((h, i) => (
+                <span
+                  key={i}
+                  className="rounded-full bg-white/80"
+                  style={{
+                    width: "2px",
+                    height: isActive ? `${h}px` : "3px",
+                    transition: "height 0.3s ease",
+                    animation: isActive
+                      ? `voiceBar ${0.45 + i * 0.06}s ${i * 0.07}s ease-in-out infinite alternate`
+                      : "none",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Status */}
+        <p className={`text-sm font-semibold mb-3 ${labelColor}`}>{label}</p>
+
+        {/* Transcript pill */}
+        {transcript && (
+          <p className="text-xs text-slate-500 max-w-[220px] text-center px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100 mb-2">
+            "{transcript}"
+          </p>
+        )}
+
+        {/* Processing dots */}
+        {overlayState === "processing" && (
+          <div className="flex gap-1.5 mb-3">
+            {[0, 1, 2].map((i) => (
               <span
                 key={i}
-                className="rounded-full bg-white/80"
+                className="w-1.5 h-1.5 bg-indigo-400 rounded-full"
                 style={{
-                  width: "2px",
-                  height:
-                    voiceState === "recording" || voiceState === "playing"
-                      ? `${h}px`
-                      : "3px",
-                  transition: "height 0.3s ease",
-                  animation:
-                    voiceState === "recording" || voiceState === "playing"
-                      ? `voiceBar ${0.45 + i * 0.06}s ease-in-out infinite alternate`
-                      : "none",
-                  animationDelay: `${i * 0.07}s`,
+                  animation: `voiceDot 1.2s ${i * 0.2}s ease-in-out infinite`,
                 }}
               />
             ))}
           </div>
-        </div>
+        )}
+
+        {/* ── Done state — speak again mic ── */}
+        {isDone && (
+          <div className="flex flex-col items-center gap-3 mt-1">
+            <button
+              onClick={onSpeak}
+              className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 active:scale-95 flex items-center justify-center shadow-lg shadow-blue-600/30 transition-all"
+            >
+              {/* Mic icon */}
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="9" y="2" width="6" height="11" rx="3" />
+                <path d="M5 10a7 7 0 0 0 14 0" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+                <line x1="8" y1="22" x2="16" y2="22" />
+              </svg>
+            </button>
+            <p className="text-[11px] text-slate-400">Tap to speak again</p>
+          </div>
+        )}
+
+        {/* Cancel during active voice */}
+        {!isDone && overlayState !== "error" && (
+          <button
+            onClick={onCancel}
+            className="mt-3 text-[11px] text-slate-400 hover:text-slate-600 transition-colors px-3 py-1 rounded-lg hover:bg-slate-100"
+          >
+            Cancel
+          </button>
+        )}
       </div>
-
-      {/* Status label */}
-      <p className={`text-sm font-semibold mb-1 ${labelColor}`}>{label}</p>
-
-      {/* Transcript pill */}
-      {transcript && (
-        <p className="text-xs text-slate-500 max-w-[220px] text-center px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100 mb-2">
-          "{transcript}"
-        </p>
-      )}
-
-      {/* Processing dots */}
-      {voiceState === "processing" && (
-        <div className="flex gap-1.5 mb-3">
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className="w-1.5 h-1.5 bg-indigo-400 rounded-full"
-              style={{
-                animation: "voiceDot 1.2s ease-in-out infinite",
-                animationDelay: `${i * 0.2}s`,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Cancel */}
-      {voiceState !== "error" && (
-        <button
-          onClick={onCancel}
-          className="mt-3 text-[11px] text-slate-400 hover:text-slate-600 transition-colors px-3 py-1 rounded-lg hover:bg-slate-100"
-        >
-          Cancel
-        </button>
-      )}
     </div>
   );
 }
-
-// ── Keyframes injected once ────────────────────────────────────────────────
-
-const VOICE_STYLES = `
-  @keyframes voiceRing  { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
-  @keyframes voiceBar   { from { transform: scaleY(0.4); } to { transform: scaleY(1.4); } }
-  @keyframes voiceDot   { 0%,100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
-  @keyframes fadeUp     { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes glowBreathe{ 0%,100% { box-shadow: 0 0 20px 4px rgba(59,130,246,0.3); } 50% { box-shadow: 0 0 40px 12px rgba(59,130,246,0.5); } }
-  @keyframes spin       { to { transform: rotate(360deg); } }
-  @keyframes shake      { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
-`;
 
 // ── Main UI ────────────────────────────────────────────────────────────────
 
@@ -356,31 +410,31 @@ function HelpdeskUI() {
   const [lang, setLang] = useState("en");
   const [langOpen, setLangOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
+  // "done" persists after playback ends so user sees speak-again UI
+  const [overlayState, setOverlayState] = useState<
+    "idle" | "recording" | "processing" | "playing" | "error" | "done"
+  >("idle");
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const idRef = useRef(1);
 
-  // ── Voice integration ──────────────────────────────────────────────────
-  const curLangObj = LANGS.find((l) => l.code === lang) ?? LANGS[0];
+  const curLang = LANGS.find((l) => l.code === lang) ?? LANGS[0];
 
   const { voiceState, transcript, agentResponse, toggleVoice, cancelVoice } =
     useVoiceChat({
-      language: curLangObj.bcp47,
+      language: curLang.bcp47,
       onResult: ({ transcript: t, agentResponse: a }) => {
-        // Add both user transcript and bot response as chat messages
-        if (t) {
+        if (t)
           setMsgs((p) => [
             ...p,
             { id: String(idRef.current++), role: "user", content: t },
           ]);
-        }
-        if (a) {
+        if (a)
           setMsgs((p) => [
             ...p,
             { id: String(idRef.current++), role: "bot", content: a },
           ]);
-        }
       },
       onError: (msg) => {
         setMsgs((p) => [
@@ -388,17 +442,28 @@ function HelpdeskUI() {
           { id: String(idRef.current++), role: "bot", content: `⚠️ ${msg}` },
         ]);
       },
+      // Fires synchronously on every voiceState transition — keeps overlayState in lockstep
+      // except "idle" which is handled by onPlaybackEnd and onCancel
+      onVoiceStateChange: (s) => {
+        if (s !== "idle") setOverlayState(s);
+      },
+      // Fires just before hook resets to idle after audio ends
+      // Setting "done" here is guaranteed to be in the same React batch as resetState()
+      onPlaybackEnd: () => setOverlayState("done"),
     });
 
-  const isVoiceActive = voiceState !== "idle";
+  const isVoiceActive = voiceState !== "idle" || overlayState !== "idle";
 
-  // ── Scroll ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (bodyRef.current)
       bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [msgs, typing]);
 
-  // ── Open/close animation ───────────────────────────────────────────────
+  // overlayState is driven entirely by callbacks — no useEffect derivation needed.
+  // onPlaybackEnd → "done"
+  // onCancel      → "idle"
+  // toggleVoice   → mirrors voiceState directly via onVoiceStateChange
+
   useEffect(() => {
     if (isOpen) {
       setIsMounted(true);
@@ -414,7 +479,6 @@ function HelpdeskUI() {
     }
   }, [isOpen]);
 
-  // ── Text send ──────────────────────────────────────────────────────────
   const send = useCallback(
     async (text?: string) => {
       const msg = (text ?? input).trim();
@@ -434,12 +498,11 @@ function HelpdeskUI() {
           { withCredentials: true }
         );
         const output: string = data?.data?.output ?? "";
-        if (output) {
+        if (output)
           setMsgs((p) => [
             ...p,
             { id: String(idRef.current++), role: "bot", content: output },
           ]);
-        }
       } catch (err: any) {
         const errMsg =
           err?.response?.data?.message || err?.message || "Network error.";
@@ -460,8 +523,6 @@ function HelpdeskUI() {
     setLangOpen(false);
   }
 
-  const curLang = LANGS.find((l) => l.code === lang) ?? LANGS[0];
-
   return (
     <>
       <style>{VOICE_STYLES}</style>
@@ -480,12 +541,21 @@ function HelpdeskUI() {
           className={`flex flex-col bg-white rounded-[22px] border border-slate-200 overflow-hidden shadow-2xl shadow-slate-900/15 transition-all duration-200 origin-bottom-right
             ${isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
         >
-          {/* Voice overlay — covers panel when voice is active */}
+          {/* Voice overlay — stays visible in "done" state until user taps mic or back */}
           <VoiceOverlay
-            voiceState={voiceState}
+            overlayState={overlayState}
             transcript={transcript}
             agentResponse={agentResponse}
-            onCancel={cancelVoice}
+            onSpeak={() => {
+              setOverlayState("idle");
+              // Small delay so overlay clears before mic starts
+              setTimeout(() => toggleVoice(), 50);
+            }}
+            onBack={() => setOverlayState("idle")}
+            onCancel={() => {
+              cancelVoice();
+              setOverlayState("idle");
+            }}
           />
 
           {/* Header */}
@@ -498,7 +568,6 @@ function HelpdeskUI() {
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                {/* Orb — pulses when voice is active */}
                 <div
                   className="w-12 h-12 rounded-full shrink-0 transition-all duration-300"
                   style={{
@@ -514,18 +583,9 @@ function HelpdeskUI() {
                     UniERP Assistant
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
-                    {/* Status dot — changes colour by voice state */}
                     <div
                       className={`w-2 h-2 rounded-full transition-colors duration-300
-                      ${
-                        voiceState === "recording"
-                          ? "bg-red-400"
-                          : voiceState === "processing"
-                            ? "bg-indigo-300"
-                            : voiceState === "playing"
-                              ? "bg-emerald-300"
-                              : "bg-emerald-400"
-                      }`}
+                      ${voiceState === "recording" ? "bg-red-400" : voiceState === "processing" ? "bg-indigo-300" : voiceState === "playing" ? "bg-emerald-300" : "bg-emerald-400"}`}
                       style={{
                         animation: isVoiceActive
                           ? "voiceDot 1.2s ease-in-out infinite"
@@ -545,7 +605,6 @@ function HelpdeskUI() {
                 </div>
               </div>
 
-              {/* Lang + close */}
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <button
@@ -569,7 +628,7 @@ function HelpdeskUI() {
                           key={l.code}
                           onClick={() => changeLang(l.code)}
                           className={`w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2.5 transition-colors
-                            ${l.code === lang ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"}`}
+                            ${l.code === lang ? "bg-blue-50 text-blue-700 font-bold" : "text-slateide-600 hover:bg-blue-50 hover:text-blue-700"}`}
                         >
                           <span className="text-[15px]">{l.flag}</span>
                           {l.label}
@@ -587,7 +646,6 @@ function HelpdeskUI() {
               </div>
             </div>
 
-            {/* Quick chips */}
             <div
               className="flex gap-2 overflow-x-auto pb-4"
               style={{ scrollbarWidth: "none" }}
@@ -656,22 +714,18 @@ function HelpdeskUI() {
                       "radial-gradient(circle at 32% 30%,#93c5fd,#1d4ed8)",
                   }}
                 />
-                <div className="bg-slate-50 border border-slate-100 rounded-tl-sm rounded-tr-2xl rounded-b-2xl px-4 py-3 flex gap-1.5 items-center">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
-                      style={{ animationDelay: `${i * 0.15}s` }}
-                    />
-                  ))}
+                {/* Typing dots — use d1/d2/d3 classes from globals.css (td keyframe) */}
+                <div className="bg-slate-50 border border-slate-100 rounded-tl-sm rounded-tr-2xl rounded-b-2xl px-4 py-3 flex gap-1 items-center">
+                  <div className="d1 w-1.5 h-1.5 bg-slate-400 rounded-full" />
+                  <div className="d2 w-1.5 h-1.5 bg-slate-400 rounded-full" />
+                  <div className="d3 w-1.5 h-1.5 bg-slate-400 rounded-full" />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Input bar */}
+          {/* Input */}
           <div className="px-4 pb-4 pt-3 shrink-0 border-t border-slate-100 bg-white">
-            {/* Voice transcript preview */}
             {voiceState === "recording" && (
               <div className="flex items-center gap-2 mb-2 px-1">
                 <span
@@ -685,7 +739,6 @@ function HelpdeskUI() {
                 </span>
               </div>
             )}
-
             <div
               className="flex items-center gap-2 bg-slate-50 border-[1.5px] border-slate-200 focus-within:border-blue-400 rounded-2xl px-3.5 py-2 transition-colors"
               style={{
@@ -707,13 +760,9 @@ function HelpdeskUI() {
                 className="flex-1 text-[13px] text-slate-800 bg-transparent border-none outline-none placeholder-slate-400 caret-blue-600 disabled:opacity-50"
               />
 
-              {/* Waveform — shown while recording */}
               {voiceState === "recording" && <VoiceWaveform active />}
-
-              {/* Voice mic button */}
               <VoiceMicButton voiceState={voiceState} onToggle={toggleVoice} />
 
-              {/* Send button */}
               <button
                 onClick={() => send()}
                 disabled={!input.trim() || typing || isVoiceActive}
@@ -740,13 +789,8 @@ function HelpdeskUI() {
           right: "16px",
           zIndex: 99999,
         }}
-        className={`w-14 h-14 rounded-[18px] flex items-center justify-center relative
-          transition-all duration-200 hover:-translate-y-1 active:scale-95
-          ${
-            isOpen
-              ? "bg-slate-700 shadow-xl shadow-slate-900/30"
-              : "bg-blue-700 shadow-xl shadow-blue-800/40 hover:shadow-blue-600/50 hover:shadow-2xl"
-          }`}
+        className={`w-14 h-14 rounded-[18px] flex items-center justify-center relative transition-all duration-200 hover:-translate-y-1 active:scale-95
+          ${isOpen ? "bg-slate-700 shadow-xl shadow-slate-900/30" : "bg-blue-700 shadow-xl shadow-blue-800/40 hover:shadow-blue-600/50 hover:shadow-2xl"}`}
       >
         <div
           className="absolute transition-all duration-200"
@@ -779,8 +823,6 @@ function HelpdeskUI() {
     </>
   );
 }
-
-// ── Portal wrapper ─────────────────────────────────────────────────────────
 
 export default function FloatingHelpdesk() {
   const [mounted, setMounted] = useState(false);

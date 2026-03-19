@@ -1,12 +1,10 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "@/lib/constants";
 
-// ── Voice state machine ────────────────────────────────────────────────────
-// idle → recording → processing → playing → idle
-// Any step can go → error → idle (after 2s)
+// ── Types ──────────────────────────────────────────────────────────────────
 
 export type VoiceState =
   | "idle"
@@ -22,9 +20,12 @@ interface VoiceChatResult {
 
 interface UseVoiceChatOptions {
   language?: string; // BCP-47 e.g. "en-IN", "hi-IN"
-  onResult?: (r: VoiceChatResult) => void; // called after agent replies
+  onResult?: (r: VoiceChatResult) => void;
   onError?: (msg: string) => void;
+  onPlaybackEnd?: () => void; // called when audio finishes — caller decides next state
 }
+
+// ── Hook ───────────────────────────────────────────────────────────────────
 
 export function useVoiceChat(opts: UseVoiceChatOptions = {}) {
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
@@ -36,56 +37,90 @@ export function useVoiceChat(opts: UseVoiceChatOptions = {}) {
   const recognitionRef = useRef<any>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── helpers ───────────────────────────────────────────────────────────────
+  // Always-fresh opts reference — prevents stale closure bugs in recorder.onstop
+  const optsRef = useRef(opts);
+  useEffect(() => {
+    optsRef.current = opts;
+  });
 
-  function goError(msg: string) {
-    setVoiceState("error");
-    opts.onError?.(msg);
-    setTimeout(() => setVoiceState("idle"), 2000);
-  }
+  // ── Stable helpers ─────────────────────────────────────────────────────────
 
-  function stopCurrentAudio() {
+  const stopCurrentAudio = useCallback(() => {
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current.src = "";
       currentAudioRef.current = null;
     }
-  }
+  }, []);
 
-  function stopStream() {
+  const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-  }
+  }, []);
 
-  // ── Main toggle ───────────────────────────────────────────────────────────
-  // Single mic click drives the whole lifecycle.
-
-  const toggleVoice = useCallback(async () => {
-    // ── If playing → stop ──────────────────────────────────────────────────
-    if (voiceState === "playing") {
-      stopCurrentAudio();
-      setVoiceState("idle");
-      return;
+  const clearAutoStop = useCallback(() => {
+    if (autoStopRef.current) {
+      clearTimeout(autoStopRef.current);
+      autoStopRef.current = null;
     }
+  }, []);
 
-    // ── If recording → stop + submit ──────────────────────────────────────
-    if (voiceState === "recording") {
+  const goError = useCallback((msg: string) => {
+    setVoiceState("error");
+    optsRef.current.onError?.(msg);
+    setTimeout(() => setVoiceState("idle"), 2000);
+  }, []);
+
+  const resetState = useCallback(() => {
+    setVoiceState("idle");
+    setTranscript("");
+    setAgentResponse("");
+  }, []);
+
+  // ── Cleanup on unmount ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    return () => {
+      clearAutoStop();
       mediaRecorderRef.current?.stop();
       recognitionRef.current?.stop();
-      // MediaRecorder onstop fires → submits automatically
+      stopCurrentAudio();
+      stopStream();
+    };
+  }, [clearAutoStop, stopCurrentAudio, stopStream]);
+
+  // ── Toggle ─────────────────────────────────────────────────────────────────
+
+  const toggleVoice = useCallback(async () => {
+    // Playing → stop immediately
+    if (voiceState === "playing") {
+      stopCurrentAudio();
+      resetState();
       return;
     }
 
-    // ── idle → recording ──────────────────────────────────────────────────
+    // Recording → stop + submit (recorder.onstop fires automatically)
+    if (voiceState === "recording") {
+      clearAutoStop();
+      mediaRecorderRef.current?.stop();
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    // Processing / error → ignore tap
     if (voiceState !== "idle") return;
 
-    const lang = opts.language ?? "en-IN";
+    // ── idle → recording ────────────────────────────────────────────────────
+    const lang = optsRef.current.language ?? "en-IN";
     let sttText = "";
 
     setVoiceState("recording");
+    setTranscript("");
+    setAgentResponse("");
 
-    // ── Step 1: Web Speech API for transcript (primary) ───────────────────
+    // Step 1 — Web Speech API (client-side, zero latency)
     const SR =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
@@ -101,13 +136,25 @@ export function useVoiceChat(opts: UseVoiceChatOptions = {}) {
         sttText = e.results[0][0].transcript;
         setTranscript(sttText);
       };
-      rec.onerror = () => {
-        /* fallback to Gemini on server */
+
+      // When speech ends naturally → stop recorder too
+      rec.onend = () => {
+        if (mediaRecorderRef.current?.state === "recording") {
+          mediaRecorderRef.current.stop();
+        }
       };
+
+      // On error → still stop recorder so onstop fires and sends what we have
+      rec.onerror = () => {
+        if (mediaRecorderRef.current?.state === "recording") {
+          mediaRecorderRef.current.stop();
+        }
+      };
+
       rec.start();
     }
 
-    // ── Step 2: MediaRecorder for audio blob (sent to server) ─────────────
+    // Step 2 — MediaRecorder (audio blob for server Whisper fallback)
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -118,14 +165,12 @@ export function useVoiceChat(opts: UseVoiceChatOptions = {}) {
       return;
     }
 
-    // Pick the best supported MIME type
-    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-      ? "audio/webm;codecs=opus"
-      : MediaRecorder.isTypeSupported("audio/webm")
-        ? "audio/webm"
-        : "audio/ogg";
+    const mimeType =
+      ["audio/webm;codecs=opus", "audio/webm", "audio/ogg"].find((t) =>
+        MediaRecorder.isTypeSupported(t)
+      ) ?? "";
 
-    const recorder = new MediaRecorder(stream, { mimeType });
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
     mediaRecorderRef.current = recorder;
     audioChunksRef.current = [];
 
@@ -134,26 +179,28 @@ export function useVoiceChat(opts: UseVoiceChatOptions = {}) {
     };
 
     recorder.onstop = async () => {
+      clearAutoStop();
       stopStream();
       recognitionRef.current?.stop();
       setVoiceState("processing");
 
-      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+      const audioBlob = new Blob(audioChunksRef.current, {
+        type: mimeType || "audio/webm",
+      });
 
       try {
-        // ── Step 3: POST audio + transcript → /api/v1/voice/chat ──────────
         const form = new FormData();
         form.append("audio", audioBlob, "voice.webm");
         form.append("lang", lang);
-        if (sttText) form.append("transcript", sttText); // send if we have it
+        // Send browser transcript so server can skip Whisper (faster path)
+        if (sttText) form.append("transcript", sttText);
 
         const res = await axios.post(`${API_BASE_URL}/voice/chat`, form, {
           withCredentials: true,
           responseType: "blob",
-          headers: { "Content-Type": "multipart/form-data" },
+          // Do NOT set Content-Type — axios sets multipart boundary automatically
         });
 
-        // ── Step 4: Read metadata headers ─────────────────────────────────
         const finalTranscript = decodeURIComponent(
           res.headers["x-transcript"] ?? ""
         );
@@ -164,12 +211,12 @@ export function useVoiceChat(opts: UseVoiceChatOptions = {}) {
         if (finalTranscript) setTranscript(finalTranscript);
         if (finalAgent) setAgentResponse(finalAgent);
 
-        opts.onResult?.({
+        optsRef.current.onResult?.({
           transcript: finalTranscript || sttText,
           agentResponse: finalAgent,
         });
 
-        // ── Step 5: Play the MP3 response ──────────────────────────────────
+        // Step 3 — Play ElevenLabs MP3
         setVoiceState("playing");
         const url = URL.createObjectURL(res.data as Blob);
         const audio = new Audio(url);
@@ -178,9 +225,9 @@ export function useVoiceChat(opts: UseVoiceChatOptions = {}) {
         audio.onended = () => {
           URL.revokeObjectURL(url);
           currentAudioRef.current = null;
-          setVoiceState("idle");
-          setTranscript("");
-          setAgentResponse("");
+          // Notify caller BEFORE resetting so it can capture the "playing→idle" transition
+          optsRef.current.onPlaybackEnd?.();
+          resetState();
         };
 
         audio.onerror = () => {
@@ -190,27 +237,51 @@ export function useVoiceChat(opts: UseVoiceChatOptions = {}) {
 
         await audio.play();
       } catch (err: any) {
-        const msg =
-          err?.response?.data?.message ||
-          err?.message ||
-          "Voice request failed.";
+        // Blob error body parsing — axios returns JSON errors as Blob when responseType:"blob"
+        let msg = err?.message ?? "Voice request failed.";
+        if (err?.response?.data instanceof Blob) {
+          try {
+            const text = await (err.response.data as Blob).text();
+            const json = JSON.parse(text);
+            msg = json?.message ?? msg;
+          } catch {
+            /* ignore */
+          }
+        } else {
+          msg = err?.response?.data?.message ?? msg;
+        }
         goError(msg);
       }
     };
 
-    recorder.start();
-  }, [voiceState, opts]);
+    // Collect audio in 250ms chunks for smoother streaming
+    recorder.start(250);
 
-  // Cancel everything cleanly
+    // Auto-stop after 30s to prevent runaway recordings
+    autoStopRef.current = setTimeout(() => {
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    }, 30_000);
+  }, [
+    voiceState,
+    goError,
+    resetState,
+    stopCurrentAudio,
+    stopStream,
+    clearAutoStop,
+  ]);
+
+  // ── Cancel ─────────────────────────────────────────────────────────────────
+
   const cancelVoice = useCallback(() => {
+    clearAutoStop();
     mediaRecorderRef.current?.stop();
     recognitionRef.current?.stop();
     stopCurrentAudio();
     stopStream();
-    setVoiceState("idle");
-    setTranscript("");
-    setAgentResponse("");
-  }, []);
+    resetState();
+  }, [clearAutoStop, stopCurrentAudio, stopStream, resetState]);
 
   return {
     voiceState,

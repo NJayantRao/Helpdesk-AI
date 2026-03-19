@@ -1,19 +1,17 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import { ENV } from "../lib/env.js";
 
 const elevenlabs = new ElevenLabsClient({
-  apiKey: process.env.ELEVENLABS_API_KEY!,
+  apiKey: ENV.ELEVENLABS_API_KEY,
 });
 
-// Voice ID — eleven_multilingual_v2 supports Hindi, Bengali, Telugu, Odia natively
-const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "EXAVITQu4vr4xnSDxMaL";
-const MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
+const VOICE_ID = ENV.ELEVENLABS_VOICE_ID || "EXAVITQu4vr4xnSDxMaL";
+const MODEL_ID = ENV.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
 
-/**
- * Convert text → MP3 audio buffer using ElevenLabs.
- * Works for English and all major Indic languages.
- */
 export async function textToSpeech(text: string): Promise<Buffer> {
-  // Add slight pause cadence for natural Indic speech rhythm
+  console.log(`[TTS] Converting ${text.length} chars to speech`);
+
+  // Slight pause cadence for natural spoken rhythm
   const styledText = text.replace(/\./g, "...");
 
   const audioStream = await elevenlabs.textToSpeech.convert(VOICE_ID, {
@@ -28,10 +26,12 @@ export async function textToSpeech(text: string): Promise<Buffer> {
     },
   });
 
-  // Collect stream → Buffer
   const chunks: Buffer[] = [];
   for await (const chunk of audioStream as AsyncIterable<Buffer>) {
     chunks.push(chunk);
   }
-  return Buffer.concat(chunks);
+
+  const buffer = Buffer.concat(chunks);
+  console.log(`[TTS] ✅ Generated ${buffer.length} bytes of audio`);
+  return buffer;
 }

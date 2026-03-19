@@ -14,6 +14,8 @@ export interface AgentContext {
   userRole: string;
   ragContext?: string;
   isAuthenticated: boolean;
+  responseLanguage?: string; // e.g. "hindi", "odia" — agent replies in this language
+  isVoiceInput?: boolean; // true → skip markdown, keep reply 2-4 sentences
 }
 
 const PUBLIC_MODE_ADDON = `
@@ -228,6 +230,40 @@ function buildSystemInstruction(ctx: AgentContext): string {
 
   if (ctx.ragContext?.trim()) {
     instruction += `\nKNOWLEDGE BASE CONTEXT (use for CATEGORY A queries):\n${ctx.ragContext}\n`;
+  }
+
+  // Injected only when user selected a non-English language.
+  // Agent MUST reply in that language — JSON keys stay English, only "output" value changes.
+  if (ctx.responseLanguage && ctx.responseLanguage !== "english") {
+    instruction += `
+════════════════════════════════════════
+LANGUAGE DIRECTIVE (MANDATORY)
+════════════════════════════════════════
+The user's preferred language is: ${ctx.responseLanguage.toUpperCase()}
+You MUST write your entire "output" value in ${ctx.responseLanguage}.
+This applies to ALL responses — knowledge answers, tool results, error messages.
+Do NOT switch to English unless the user explicitly asks.
+Keep JSON structure (type, function, input keys) in English — only the "output" string value must be in ${ctx.responseLanguage}.
+`;
+  }
+
+  // Injected only for mic-based requests. Output goes to ElevenLabs TTS — write for ears.
+  if (ctx.isVoiceInput) {
+    instruction += `
+════════════════════════════════════════
+VOICE MODE DIRECTIVE
+════════════════════════════════════════
+This query was spoken by the user (voice input via microphone).
+Your "output" will be converted to speech by a TTS engine.
+Follow these rules strictly:
+- Write in natural spoken language, NOT in a document/list format.
+- Do NOT use markdown: no **, no bullet points (- or *), no numbered lists.
+- Do NOT use special characters or symbols that sound unnatural when read aloud.
+- Keep the response concise: 2–4 sentences maximum.
+- Use full sentences. Prefer "and" over newlines.
+- Numbers: write as words where natural (e.g. "eighty-five thousand" not "85,000").
+- If listing items, use "firstly… secondly… and finally…" style, not bullets.
+`;
   }
 
   return instruction;

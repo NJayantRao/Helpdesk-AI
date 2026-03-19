@@ -13,6 +13,7 @@ import { companyRouter } from "./routes/company.routes.js";
 import { attendanceRouter } from "./routes/attendance.routes.js";
 import { documentRouter } from "./routes/document.routes.js";
 import { chatbotRouter } from "./routes/chatbot.routes.js";
+import { voiceRouter } from "./routes/voice.routes.js";
 
 const app = express();
 
@@ -26,30 +27,16 @@ app.use(
 );
 
 app.options(/.*/, cors());
-
 app.use(express.json());
-
 app.use(cookieParser());
-
 app.set("trust proxy", 1);
-
 app.use(rateLimiter);
 
-/**
- * @route GET /health-check
- * @description Health check endpoint to verify if the server is running and healthy.
- * @access public
- */
-app.get("/health-check", (req, res) => {
+app.get("/health-check", (_req, res) => {
   res.status(200).json({ status: 200, message: "Server is Healthy... 😇😇" });
 });
 
-/**
- * @route GET /
- * @description Root endpoint for the API.
- * @access public
- */
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.status(200).json({ status: 200, message: "Server up n running... ✅✅" });
 });
 
@@ -63,5 +50,6 @@ app.use("/api/v1/company", companyRouter);
 app.use("/api/v1/attendance", attendanceRouter);
 app.use("/api/v1/document", documentRouter);
 app.use("/api/v1/chat", chatbotRouter);
+app.use("/api/v1/voice", voiceRouter); // ← voice STT → agent → TTS
 
 export default app;
