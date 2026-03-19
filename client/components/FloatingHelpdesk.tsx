@@ -714,11 +714,17 @@ function HelpdeskUI() {
                       "radial-gradient(circle at 32% 30%,#93c5fd,#1d4ed8)",
                   }}
                 />
-                {/* Typing dots — use d1/d2/d3 classes from globals.css (td keyframe) */}
-                <div className="bg-slate-50 border border-slate-100 rounded-tl-sm rounded-tr-2xl rounded-b-2xl px-4 py-3 flex gap-1 items-center">
-                  <div className="d1 w-1.5 h-1.5 bg-slate-400 rounded-full" />
-                  <div className="d2 w-1.5 h-1.5 bg-slate-400 rounded-full" />
-                  <div className="d3 w-1.5 h-1.5 bg-slate-400 rounded-full" />
+
+                <div className="bg-slate-50 border border-slate-100 rounded-tl-sm rounded-tr-2xl rounded-b-2xl px-4 py-3 flex gap-1.5 items-end">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-2 h-2 bg-slate-400 rounded-full inline-block"
+                      style={{
+                        animation: `td 1s ${i * 0.15}s ease-in-out infinite`,
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             )}
