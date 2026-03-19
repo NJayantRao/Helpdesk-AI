@@ -23,6 +23,7 @@ interface UseVoiceChatOptions {
   onResult?: (r: VoiceChatResult) => void;
   onError?: (msg: string) => void;
   onPlaybackEnd?: () => void; // called when audio finishes — caller decides next state
+  onVoiceStateChange?: (state: VoiceState) => void;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────

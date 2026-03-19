@@ -26,10 +26,16 @@ export async function textToSpeech(text: string): Promise<Buffer> {
     },
   });
 
-  const chunks: Buffer[] = [];
-  for await (const chunk of audioStream as AsyncIterable<Buffer>) {
-    chunks.push(chunk);
+  const reader = audioStream.getReader();
+  const chunks: Uint8Array[] = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
   }
+
+  const audioBuffer = Buffer.concat(chunks);
 
   const buffer = Buffer.concat(chunks);
   console.log(`[TTS] ✅ Generated ${buffer.length} bytes of audio`);

@@ -8,7 +8,7 @@
     "module": "nodenext",
     "target": "esnext",
     // For nodejs:
-    "lib": ["esnext"],
+    "lib": ["ES2022", "DOM"],
     "types": ["node"],
 
     // Other Outputs

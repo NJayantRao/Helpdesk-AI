@@ -18,14 +18,6 @@ const LANG_NAMES: Record<string, string> = {
   "pa-IN": "punjabi",
 };
 
-/**
- * Transcribe audio buffer → text using Whisper large-v3 via HuggingFace + fal-ai.
- * Supports all Indic languages natively.
- *
- * @param audioBuffer  Raw audio bytes (webm/opus from MediaRecorder)
- * @param langCode     BCP-47 language code e.g. "hi-IN", "or-IN"
- * @returns            Transcript string (empty string on failure)
- */
 export async function speechToText(
   audioBuffer: Buffer,
   langCode = "en-IN"
@@ -37,12 +29,12 @@ export async function speechToText(
       `[STT] Transcribing ${audioBuffer.length} bytes, lang: ${langHint}`
     );
 
+    const blob = new Blob([new Uint8Array(audioBuffer)]);
+
     const output = await client.automaticSpeechRecognition({
-      data: audioBuffer,
+      inputs: blob,
       model: "openai/whisper-large-v3",
-      // fal-ai runs Whisper with GPU — fast even for Indic languages
       provider: "fal-ai",
-      // Pass language hint so Whisper skips language detection step (faster + more accurate)
       parameters: {
         language: langHint,
         task: "transcribe",
@@ -50,7 +42,9 @@ export async function speechToText(
     });
 
     const text = (output as any).text?.trim() ?? "";
+
     console.log(`[STT] Transcript: "${text.slice(0, 80)}"`);
+
     return text;
   } catch (err) {
     console.error("[STT] Whisper failed:", err);
