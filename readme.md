@@ -325,8 +325,8 @@ npm run dev
 Contributions are welcome and appreciated!  
 To maintain consistency and code quality, please follow our contribution guidelines:
 
-👉 [View Contributing Guide](./CONTRIBUTING.md)
+👉 [View Contributing Guide](./CONTRIBUTING.MD)
 
 ## 📜 LICENSE
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](./LICENSE.MD) file for details.
