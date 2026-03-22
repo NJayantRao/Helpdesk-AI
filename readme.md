@@ -234,7 +234,7 @@ Then install dependencies:
 
 ```bash
 cd ../server
-npm install
+npm install --legacy-peer-deps
 npx prisma migrate dev # Database migration
 npm run generate # Generate prisma client
 npm run dev
