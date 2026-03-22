@@ -5,7 +5,19 @@ The platform combines relational university data with Retrieval-Augmented Genera
 
 ---
 
-## 🚀 Overview
+## 📑 Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Tech Stack](#tech-stack)
+- [Setup Instructions](#setup-instructions)
+- [Future Enhancements](#future-enhancements)
+- [Contributions](#contributing)
+- [License](#license)
+
+---
+
+## 🚀 Overview <a id="overview"></a>
 
 The **AI-Powered Intelligent University ERP (NIS)** is a modern, full-stack platform designed to simplify and enhance university operations through the integration of Artificial Intelligence 🤖 and intuitive user interfaces.
 
@@ -22,7 +34,7 @@ With a modular architecture, scalable backend, and AI-driven intelligence, NIS t
 
 ---
 
-## ⭐ Key Features
+## ⭐ Key Features <a id="key-features"></a>
 
 ### 🤖 AI-Powered Helpdesk
 
@@ -106,7 +118,7 @@ With a modular architecture, scalable backend, and AI-driven intelligence, NIS t
 
 ---
 
-## 🧰 Tech Stack
+## 🧰 Tech Stack <a id="tech-stack"></a>
 
 ### 🎨 Frontend
 
@@ -242,7 +254,7 @@ With a modular architecture, scalable backend, and AI-driven intelligence, NIS t
 
 ---
 
-## ⚙️ Setup Instructions
+## ⚙️ Setup Instructions <a id="setup-instructions"></a>
 
 Follow the steps below to run the project locally:
 
@@ -300,7 +312,7 @@ npm run dev
 🚀 App running at: http://localhost:5000
 ```
 
-## 🚀 Future Enhancements
+## 🚀 Future Enhancements <a id="future-enhancements"></a>
 
 - 🌍 **Enhanced Multilingual Support**
   - Improve support for regional languages (Odia, Bengali, Telugu)
@@ -320,13 +332,13 @@ npm run dev
 
 ---
 
-## 🤝 CONTRIBUTING
+## 🤝 CONTRIBUTING <a id="contributing"></a>
 
 Contributions are welcome and appreciated!  
 To maintain consistency and code quality, please follow our contribution guidelines:
 
 👉 [View Contributing Guide](./CONTRIBUTING.MD)
 
-## 📜 LICENSE
+## 📜 LICENSE <a id="license"></a>
 
 This project is licensed under the MIT License — see the [LICENSE](./LICENSE.MD) file for details.
