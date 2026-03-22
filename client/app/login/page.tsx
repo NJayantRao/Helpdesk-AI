@@ -220,7 +220,7 @@ function LoginForm() {
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200">
               <BookOpen size={18} className="text-white" />
             </div>
-            <span className="text-lg font-bold text-slate-900">UniERP</span>
+            <span className="text-lg font-bold text-slate-900">NIS</span>
           </Link>
           <h1
             className="text-2xl font-bold text-slate-900 mb-1.5"

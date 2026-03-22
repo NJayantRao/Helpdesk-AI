@@ -402,7 +402,7 @@ function HelpdeskUI() {
       id: "0",
       role: "bot",
       content:
-        "Hi! I'm the UniERP Assistant 👋 Ask me about admissions, fees, exams, hostel, or placements. You can also use the mic to speak!",
+        "Hi! I'm the NIS Assistant 👋 Ask me about admissions, fees, exams, hostel, or placements. You can also use the mic to speak!",
     },
   ]);
   const [input, setInput] = useState("");
@@ -580,7 +580,7 @@ function HelpdeskUI() {
                 />
                 <div>
                   <div className="text-white font-bold text-[15px] leading-snug">
-                    UniERP Assistant
+                    NIS Assistant
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
                     <div
@@ -779,7 +779,7 @@ function HelpdeskUI() {
               </button>
             </div>
             <p className="text-center mt-2 text-[10px] text-slate-300">
-              UniERP AI · Verify important info with staff
+              NIS AI · Verify important info with staff
             </p>
           </div>
         </div>

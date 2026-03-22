@@ -120,7 +120,7 @@ const TESTIMONIALS = [
   {
     name: "Rohit Das",
     dept: "B.Tech ECE · 2nd Year",
-    text: "Grabbed my hall ticket at midnight from my phone. UniERP saved me from real exam-day panic.",
+    text: "Grabbed my hall ticket at midnight from my phone. NIS AI saved me from real exam-day panic.",
     init: "RD",
   },
   {
@@ -159,7 +159,7 @@ export default function LandingPage() {
       id: "0",
       role: "bot",
       content:
-        "Hi! I'm the UniERP Assistant 👋 Ask me about admissions, fees, exams, hostel, or placements.",
+        "Hi! I'm the NIS AI Assistant 👋 Ask me about admissions, fees, exams, hostel, or placements.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -296,17 +296,17 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-3 shrink-0">
-              <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-[#155dfc] rounded-xl flex items-center justify-center">
                 <span className="text-white font-extrabold text-lg leading-none">
-                  U
+                  N
                 </span>
               </div>
               <div>
                 <div className="font-bold text-[17px] text-slate-900 leading-tight">
-                  UniERP
+                  NIS AI
                 </div>
                 <div className="text-[11px] text-slate-400 leading-none tracking-wide">
-                  NIST Institute
+                  NIST University
                 </div>
               </div>
             </div>
@@ -509,7 +509,7 @@ export default function LandingPage() {
                 Everything in One Place
               </h2>
               <p className="text-slate-500 text-sm max-w-md mx-auto">
-                From admission to placement — UniERP handles every aspect of
+                From admission to placement — NIS handles every aspect of
                 university life.
               </p>
             </div>
@@ -753,11 +753,11 @@ export default function LandingPage() {
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
                     <span className="text-white font-extrabold text-[15px]">
-                      U
+                      N
                     </span>
                   </div>
                   <span className="text-[15px] font-bold text-white">
-                    UniERP
+                    NIS AI
                   </span>
                 </div>
                 <p className="text-[13px] text-white/35 leading-relaxed max-w-xs mb-6">
@@ -819,7 +819,7 @@ export default function LandingPage() {
             </div>
             <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-6">
               <span className="text-[12px] text-white/18">
-                © 2026 UniERP · NIST Institute of Science & Technology
+                © {new Date().getFullYear()} NIS · NIST University
               </span>
               <div className="flex gap-5">
                 {["Privacy Policy", "Terms of Use", "Accessibility"].map(
@@ -976,7 +976,7 @@ export default function LandingPage() {
                       />
                       <div>
                         <div className="text-white font-bold text-[15px] leading-snug">
-                          UniERP Assistant
+                          NIS Assistant
                         </div>
                         <div className="flex items-center gap-1.5 mt-1">
                           <div
@@ -1238,7 +1238,7 @@ export default function LandingPage() {
                     </button>
                   </div>
                   <p className="text-center mt-2 text-[10px] text-slate-300">
-                    UniERP AI · Verify important info with staff
+                    NIS AI · Verify important info with staff
                   </p>
                 </div>
               </div>

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "UniERP — Intelligent University Platform",
+  title: "NIS — Intelligent University Platform",
   description:
     "AI-Powered University ERP with multilingual helpdesk and student analytics",
 };

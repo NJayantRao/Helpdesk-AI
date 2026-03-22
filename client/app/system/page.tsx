@@ -454,7 +454,7 @@ export default function SystemDashboard() {
               </div>
               <div>
                 <div className="text-sm font-bold text-slate-900">
-                  UniERP System
+                  NIS System
                 </div>
                 <div className="text-[10px] text-slate-400">
                   Operator Console
@@ -483,7 +483,7 @@ export default function SystemDashboard() {
               </div>
               <div>
                 <div className="text-sm font-bold text-slate-900">
-                  UniERP System
+                  NIS System
                 </div>
                 <div className="text-[10px] text-slate-400 font-medium">
                   Operator Console

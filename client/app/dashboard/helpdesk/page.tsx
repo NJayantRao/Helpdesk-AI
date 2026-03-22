@@ -164,7 +164,7 @@ export default function HelpdeskPage() {
               </div>
               <div>
                 <div className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                  UniERP AI Assistant
+                  NIS AI Assistant
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                 </div>
                 <div className="text-xs text-slate-400">
