@@ -186,74 +186,6 @@ With a modular architecture, scalable backend, and AI-driven intelligence, NIS t
 
 ---
 
-## 🧰 Tech Stack
-
-### 🎨 Frontend
-
-- ⚛️ **React (via Next.js)** — Component-based UI development
-- ▲ **Next.js** — Full-stack React framework (routing, SSR, API integration)
-- 🎨 **Tailwind CSS** — Utility-first styling for modern UI
-- 🌐 **Axios** — API communication between client and server
-- 🎤 **Browser APIs**
-  - MediaRecorder — audio capture
-  - Web Speech API — client-side speech recognition
-
----
-
-### ⚙️ Backend
-
-- 🟢 **Node.js** — JavaScript runtime for scalable server-side logic
-- 🚂 **Express.js (v5)** — REST API framework
-- 🔐 **JWT Authentication** — Secure user sessions (httpOnly cookies)
-- 📦 **Multer** — File and audio upload handling
-- 📬 **BullMQ** — Queue system for background jobs
-
----
-
-### 🗄️ Database & Storage
-
-- 🐘 **PostgreSQL** — Relational database for ERP data
-- 🔷 **Prisma ORM** — Type-safe database access
-- ☁️ **Cloudinary** — Media and document storage (PDF/images CDN)
-
----
-
-### 🧠 AI & Machine Learning
-
-- ✨ **Gemini (Google AI)** — Core reasoning engine (AI agent)
-- 🔍 **Gemini Embedding Model** — Text → vector embeddings
-- 📊 **Qdrant** — Vector database for semantic search (RAG)
-- 🎧 **Whisper (via Hugging Face / fal.ai)** — Speech-to-Text fallback
-- 🔊 **ElevenLabs** — Text-to-Speech (natural voice output)
-
----
-
-### ☁️ Cloud & Infrastructure
-
-- 🚀 **Vercel** — Frontend deployment
-- 🧱 **Render** — Backend deployment
-- ⚡ **Upstash Redis** — Queue backend + rate limiting
-- 🐳 **Docker** — Containerization and environment consistency
-
----
-
-### 🔄 System Architecture Concepts
-
-- 🧠 **RAG (Retrieval-Augmented Generation)** — Document-based AI responses
-- 🔁 **Agent-Based Loop** — Decision-making AI with tool/API calling
-- 📡 **REST APIs** — Communication between services
-- ⚙️ **Asynchronous Processing** — Queue-based background jobs
-
----
-
-### 🌍 Additional Capabilities
-
-- 🌐 **Multilingual Support** — EN, HI, OR, BN, TE
-- 🎤 **Voice-First Interaction** — End-to-end speech pipeline
-- 📈 **Real-Time Data Handling** — Live ERP integration
-
----
-
 ## ⚙️ Setup Instructions <a id="setup-instructions"></a>
 
 Follow the steps below to run the project locally:
@@ -271,7 +203,7 @@ cd Helpdesk-AI
 
 #### 🔹 Client-side Setup
 
-Create a `.env` file inside the **client/** directory:
+Create a `.env` file inside the **client** directory:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
@@ -293,7 +225,7 @@ npm run dev
 
 #### 🔹 Server-side Setup
 
-- Create a `.env` file inside the **server/** directory.
+- Create a `.env` file inside the **server** directory.
 - Use the provided `.env.sample` file as a reference:
 - Copy the configuration into your `.env` file.
 - Replace all placeholder values (`<...>`) with your actual credentials and API keys.
