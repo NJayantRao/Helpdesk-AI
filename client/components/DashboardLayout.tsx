@@ -71,7 +71,7 @@ function Sidebar({
             <BookOpen size={16} className="text-white" />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-900">UniERP</div>
+            <div className="text-sm font-bold text-slate-900">NIS</div>
             <div className="text-[10px] text-slate-400 font-medium">
               Intelligent Platform
             </div>
